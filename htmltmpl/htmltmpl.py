@@ -386,7 +386,12 @@ class TemplateManager:
 ##############################################
 
 class TemplateProcessor:
-    """ """
+    """ Fill the template with data and process it.
+
+        This class provides actual processing of the template.
+        Use it to set template variables and loops and then obtain
+        result of the processing.
+    """
 
     def __init__(self, html_escape=1, magic_vars=1, global_vars=0, debug=0):
         """ Constructor.
