@@ -1,5 +1,5 @@
 
-output = tproc.process(template)
+output += tproc.process(template)
 
 if "out" in sys.argv:
     sys.stdout.write(output)

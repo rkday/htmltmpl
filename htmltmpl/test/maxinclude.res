@@ -15,10 +15,11 @@
 
     <h2>Recursive include. Hello !</h2>  
 
+                        <br />
                         <p>
                         <strong>HTMLTMPL WARNING:</strong><br />
-                        Maximum include limit reached.<br />
                         Cannot include template: <strong>recurse.tmpl</strong>
                         </p>
+                        <br />
                         </body>
 </html>

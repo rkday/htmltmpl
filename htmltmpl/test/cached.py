@@ -34,6 +34,5 @@ tproc.process(template)
 tproc.reset()
 
 fill(tproc)
-output = tproc.process(template)
 
 execfile("foot.inc")

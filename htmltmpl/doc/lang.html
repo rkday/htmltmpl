@@ -36,7 +36,7 @@
             <li><p><a href="lang.html">THE LANGUAGE</a></p></li>
             <li><p><a href="python.html">PYTHON VERSION</a></p></li>
             <li><p><a href="easydoc.html">PYTHON EASYDOC</a></p></li>
-            <li><p><a href="index.html">JAVA VERSION</a></p></li>
+            <li><p><a href="php.html">PHP VERSION</a></p></li>
             <li><p><a href="http://lists.sourceforge.net/lists/listinfo/htmltmpl-support">MAILING LIST</a></p></li>
             <li><p><a href="http://sourceforge.net/cvs/?group_id=34229">PUBLIC CVS</a></p></li>
             <li><p><a href="http://sam.tregar.com/html_template.html">HTML::TEMPLATE</a></p></li>
@@ -119,6 +119,15 @@
       
       <li>
         <p>
+          Multipart templates can be created using the &lt;TMPL_BOUNDARY&gt;
+          directive. Multipart templates are useful when you need to process
+          and output a part of the template before all data needed to process
+          the whole template are ready.
+        </p>
+      </li> 
+      
+      <li>
+        <p>
           Additional loop context variables.
         </p>
         <ul>
@@ -146,7 +155,7 @@
         <p>
           All variables are by default automatically HTML escaped.
           This can be disabled by setting the 'html_escape' parameter
-          of the constructor to false.
+          to false.
         </p>
       </li>
     </ul>        
@@ -157,13 +166,19 @@
     <h3>Statements</h3>
     <p>
       The control statements of the templating language look like HTML tags.
-      They can be written in two ways:
+      They can be written in two forms:
     </p>
     
     <ul>
       <li>&lt;TMPL_VAR&gt;</li>
       <li>&lt;!-- TMPL_VAR --&gt;</li>
     </ul>
+
+    <p>
+      There must be <strong>exactly</strong> one space after
+      the opening "<em>&lt;!--</em>" and before the
+      closing "<em>--&gt;</em>" if you use the longer form.
+    </p> 
     
     <p>
       All statements except TMPL_VAR should be placed on a separate line.
@@ -179,7 +194,7 @@
       characters between the newline and the statement.
     </p>
     <p>
-      The whitespace removing described above is a Good Thing, because it
+      The white-space removing described above is a Good Thing, because it
       keeps the HTML nicely formatted, especially when loops are involved.
       If you want to preserve the newline after a statement, just add a space
       or a tab after the statement.
@@ -202,12 +217,14 @@
       the statements easily distinguishable from normal XHTML tags,
       that are always in lowercase.
     </p>
-    
+    <p>
+      Templates must not contain the '\0' character (ASCII code zero).
+    </p>    
     
     <hr></hr>
     <h3>Parameters of the statements</h3>
     <p>
-      Parameters can be written in two ways:
+      Parameters can be written in two forms:
     </p>
     
     <ul>
@@ -216,6 +233,11 @@
     </ul>
     
     <p>
+      There must not be any space between the "=" character and the name or
+      the value of the parameter.
+    </p>
+
+    <p>
       Parameter names must be completely in uppercase: ESCAPE="HTML".
     </p>    
     <p>
@@ -223,7 +245,11 @@
       "HTML", "URL" and "NONE" values of the ESCAPE parameter) must
       be completely in uppercase.
     </p>     
-  
+    <p>
+      Parameter names and values can contain only alphanumeric characters
+      (non-locale) plus some additional characters: dash, dot, underscore,
+      colon, slash, backslash. They must NOT contain any spaces.
+    </p>  
     
     <hr></hr>
     <h3>Identifiers</h3>
@@ -242,9 +268,9 @@
       described below.
     </p>
     <p>
-      Template filenames in TMPL_INCLUDE statements can contain ASCII
-      alphanumeric characters (non-locale) plus some additional
-      characters: dash, dot, underscore, colon, slash, backslash.
+      Template filenames in TMPL_INCLUDE statements can contain only the same
+      characters that are allowed in values of parameters(see above). They
+      must NOT contain any spaces.
     </p>
     <p>    
       Minimum length of an identifier is one character.
@@ -306,6 +332,10 @@
         <td><strong>/TMPL_LOOP</strong></td>
         <td>&nbsp;</td>
       </tr>
+      <tr>
+        <td><strong>TMPL_BOUNDARY</strong></td>
+        <td>&nbsp;</td>
+      </tr>
     </table>
     
     <p></p>
@@ -318,8 +348,7 @@
       Everything that follows these four characters - "### " - is removed 
       before the template is processed. 
       The ending space in "### " IS significant.
-      Comments can be disabled using the 'comments' parameter of the
-      constructor.
+      Comments can be disabled using the 'comments' parameter.
     </p>        
     
     
@@ -350,7 +379,7 @@
     <h4>Examples:</h4>
     <pre>
     &lt;TMPL_INCLUDE inc.tmpl&gt;
-    &lt;TMPL_INCLUDE NAME="inc/inc1.tmpl"&gt;
+    &lt;TMPL_INCLUDE NAME="inc.tmpl"&gt;
     </pre>                   
     
     
@@ -369,7 +398,7 @@
     <h4>Escaping of variables</h4>
     <p>
       All variables are automatically HTML escaped. This can be disabled
-      using the 'html_escape' parameter of the constructor.
+      using the 'html_escape' parameter.
       Escaping of variables can also be specified on a per variable basis
       using the ESCAPE parameter. This parameter overrides the default
       escaping setting. It can have three values:
@@ -380,12 +409,12 @@
       <li>NONE : disable escaping</li>
     </ul>
     
-    <h4>Global lookup of variables</h4>
+    <h4>Global look-up of variables</h4>
     <p>
       All variables that are inside a loop are local to that loop.
       If you want to reference a "global" variable from inside a loop,
-      then you must either enable the 'global_vars' parameter of the
-      constructor or use the GLOBAL parameter to override 'global_vars'
+      then you must either enable the 'global_vars' parameter or use
+      the GLOBAL parameter to override 'global_vars'
       setting on a per variable basis.     
     </p>
     
@@ -455,7 +484,7 @@
       Loops can contain other nested loops. Every loop introduces its own namespace
       (scope) for variables. Variables located inside a loop cannot reference
       variables located outside the loop unless the 'global_vars' parameter
-      of the constructor is true, or unless this parameter is overridden for
+      is true, or unless this parameter is overridden for
       this variable using the 'GLOBAL' parameter of the corresponding
       TMPL_VAR statement.
     </p>    
@@ -525,14 +554,64 @@
     
     <h4>__EVERY__x</h4>
     <p>
-      Where 'x' must be an integer. This variable is true if number of
+      Where 'x' must be an integer. It can consist of more than one digit.
+      This variable is true if number of
       current pass modulo 'x' equals to zero. The variable is never true in
       first or last pass, even if the condition above is true
       in such a pass. This variable can be used to put separators
       between every 'x' items of a list.
     </p>
     
+
+    <hr></hr>
+    <h3>Multipart templates</h3>
+    <p>
+      Multipart templates can be created using the &lt;TMPL_BOUNDARY&gt;
+      directive. This directive has no parameters.
+    </p>
+    <p>  
+      Multipart templates are useful when you need to process
+      and output a part of the template before all data needed to process
+      the whole template are ready.
+    </p>
+    <p>
+      This can be useful to improve
+      perceived responsiveness of web applications by sending the top part of
+      a page to the client before the web application for example sends a slow
+      query to the database and generates rest of the page from results of
+      the query. Keep in mind that you probably will have to flush the
+      output stream to achieve the desired effect. This can usually be done by
+      calling <em>sys.stdout.flush()</em> in Python or <em>flush()</em> in PHP.
+    </p>
+    <p>
+      Multipart templates must follow this rule: <strong>every part itself
+      must be a syntactically valid template.</strong> It means that boundaries
+      between the parts must not be located inside a conditional block or
+      inside a loop block.
+    </p>
+    <p>
+      The boundaries are processed after template inclusions are processed.
+      It's possible to put the boundaries into the included templates,
+      tough it's not recommended.
+    </p>
+    <p>
+      Please consult API documentation of the TemplateProcessor.process()
+      method to find out how to correctly use multipart templates in
+      your applications.
+    </p>    
+
+    <h4>examples</h4>
+    <pre>
+    This is part one.
+    <span class="red">&lt;TMPL_BOUNDARY&gt;</span>
+    This is part two.
+    <span class="red">&lt;TMPL_BOUNDARY&gt;</span>    
+    This is part three.
+    </pre>
     
+    
+    <!-- Example -->
+        
     <hr></hr>
     <h2><a name="example"></a>Example</h2>
     
