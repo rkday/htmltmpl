@@ -1,12 +1,13 @@
 
 body {
     font-family: "Helvetica CE", "Arial CE", Helvetica, Arial, sans-serif;
-    background-color: rgb(255,255,204);
+    background-color: #d8d0a4;
     color: black;
 }
 
 a {
     color: red;
+    font-weight: bold;
 }
 
 .red {

@@ -27,7 +27,7 @@
     Prague, the Czech Republic
 """
 
-__version__ = 1.13
+__version__ = 1.14
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of standard Python library.
