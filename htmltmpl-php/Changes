@@ -1,4 +1,8 @@
 
+    1.01 : 2001/11/18
+        - the module now can be used on the Windows platform
+        - better makedist.sh script (excludes the CVS directories)
+        - documentation enhancements (clarification of included templates)
 
     1.00 : 2001/10/08
         - first release

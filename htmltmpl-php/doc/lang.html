@@ -83,6 +83,15 @@
       Variable names must always be in lowercase. Loop names must be in
       lowercase, but capitalized.
     </p>
+
+    <p>
+      <strong>WARNING:</strong>
+      All included templates must be located in a directory named
+      <strong>'inc'</strong> which must be a subdirectory of the
+      directory in which the main template file is located. You must
+      refer to these templates only by their filename, ie. without
+      the 'inc' part of the path.
+    </p>
     
     <p>
       <strong>
@@ -371,15 +380,24 @@
       exactly as if its contents were physically included in the main
       template.
     </p>
-    
+
     <p>
-      TODO
+      All included templates must be located in a directory named
+      <strong>'inc'</strong> which must be a subdirectory of the
+      directory in which the main template file is located. You must
+      refer to these templates only by their filename, ie. without
+      the 'inc' part of the path.
     </p>
-    
+     
     <h4>Examples:</h4>
+    <p>
+    In this example, the file <em>header.tmpl</em> must be located in the
+    <strong>'inc'</strong> subdirectory of the directory in
+    which the main template file is located.
+    </p>
     <pre>
-    &lt;TMPL_INCLUDE inc.tmpl&gt;
-    &lt;TMPL_INCLUDE NAME="inc.tmpl"&gt;
+        &lt;TMPL_INCLUDE header.tmpl&gt;
+        &lt;TMPL_INCLUDE NAME="header.tmpl"&gt;
     </pre>                   
     
     

@@ -25,7 +25,7 @@
     LICENSE-URL:    http://www.gnu.org/licenses/gpl.html
 */
 
-define('_VERSION', 1.00);
+define('_VERSION', 1.01);
 define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
 
 # All included templates must be placed in a subdirectory of
@@ -42,6 +42,8 @@ define('_PARAM_NAME', 1);
 define('_PARAM_ESCAPE', 2);
 define('_PARAM_GLOBAL', 3);
 
+# Platform dependent defaults.
+define('_DEBUG_NEWLINE_SEP', "\n");
 
 ##############################################
 #         private helper functions           #
@@ -62,7 +64,7 @@ function _DEB($str) {
             exit;
         }
         flock($debug_log, LOCK_EX);
-        fputs($debug_log, "$str\n");
+        fputs($debug_log, $str._DEBUG_NEWLINE_SEP);
         flock($debug_log, LOCK_UN);
         if (! fclose($debug_log)) {
             user_error('Cannot close debugging log.', E_USER_ERROR);
@@ -1164,7 +1166,7 @@ class TemplateCompiler {
              /?TMPL_[A-Z]+             # closing slash "/" (opt.) + statement
              [ a-zA-Z0-9"/.=:_\\\\-]*  # this spans also comments ending (--)
              >)
-            \n?                        # eat trailing newline (opt.)
+            (?:\r?\n)?                 # eat trailing newline (opt.)
         ';
         $NO_LIMIT = -1;
         $split = preg_split("|$statements_pat|xm", $template_data, $NO_LIMIT,
