@@ -756,9 +756,11 @@ class TemplateProcessor {
 
                 elseif ($token == '<TMPL_GETTEXT') {
                     $skip_params = TRUE;
-                    $text = $tokens[$i + _PARAM_GETTEXT_STRING];
-                    $out .= gettext($text);
-                    _DEB("GETTEXT: $text");
+                    if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        $text = $tokens[$i + _PARAM_GETTEXT_STRING];
+                        $out .= gettext($text);
+                        _DEB("GETTEXT: $text");
+                    }
                 }
                 
                 else {
