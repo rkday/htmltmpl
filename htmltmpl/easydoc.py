@@ -28,14 +28,18 @@ __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules except the 'htmltmpl' module are part of
 # the standard Python library.
+# The 'easydocp' module is stolen example module from documentation
+# of 'parser' module from the standard library.
 
 import sys
 import string
 import re
 import pprint
 import copy
+import parser
 from types import *
 from htmltmpl import TemplateCompiler, TemplateProcessor
+import easydocp
 
 VERSION = 1.00
 KEEP_NEWLINES = 1
@@ -49,10 +53,11 @@ class Easydoc:
 
         This class provides all the functionality of easydoc. You can
         subclass it and override its processing methods module(),
-        class() and method() to customize its behaviour.
+        mclass() and method() to customize its behaviour.
         
         You also can easily use your own template to modify the output
-        in any way you need.
+        in any way you need. Output colors can be customized via
+        parameters.
     """
     
     def __init__(self, template, debug=0):
@@ -60,15 +65,16 @@ class Easydoc:
 
             @header __init__(template, debug=0)
            
-            @param template String with template data.
+            @param template String containing template data.
             
-            @param debug Enable debugging messages printed to stderr.
+            @param debug Enable or disable debugging messages.
             This optional parameter can be used to enable or disable debugging
             messages which are printed to stderr. By default debugging
             messages are disabled.
         """
         self._debug = debug
         self._classes = []
+        self._functions = []
         self._class = {}        
         self._template = TemplateCompiler().compile_string(template)
         self._tproc = TemplateProcessor(html_escape=0)            
@@ -84,6 +90,15 @@ class Easydoc:
             The module must be specified as filename. The module will be
             executed, therefore untrusted modules should not be processed by
             this method.
+
+            @param bgcolor Set background color.
+            Accepts any valid CSS color value.
+
+            @param textcolor Set text color.
+            Accepts any valid CSS color value.
+
+            @param linkcolor Set color of hyperlinks.
+            Accepts any valid CSS color value.
             
             @param with_hidden Do not exclude hidden sections from output.
             This optional parameter can be used to force inclusion of
@@ -94,33 +109,34 @@ class Easydoc:
         self._tproc.set("bgcolor", bgcolor)
         self._tproc.set("textcolor", textcolor)
         self._tproc.set("linkcolor", linkcolor)
-        
-        try:
-            execfile(module, mdict)
-        except IOError:
-            raise EasydocError, "Cannot find module '%s'." % module
-        except:
-            raise EasydocError, "Syntax errors in module '%s'." % module
 
-        self.module(mdict["__doc__"])
-        for mattr in mdict.keys():                      # module attrib.
-            if type(mdict[mattr]) == ClassType:
-                mclass = mattr
-                self.DEB("Class: " + mclass)
-                if self.mclass(mclass, mdict[mclass].__doc__, with_hidden):
-                    # The class will be included in output.
-                    self._class["Methods"] = []
-                    for cattr in mdict[mclass].__dict__.keys(): # class attrib.
-                        if type(mdict[mclass].__dict__[cattr]) == FunctionType:
-                            method = cattr
-                            self.DEB("Method: " + method)
-                            self.method(mclass, method,
-                                        mdict[mclass].__dict__[method].__doc__,
-                                        with_hidden)
-                    self.DEB("Finished class: " + mclass)
-                    self._classes.append(copy.copy(self._class))
-                self._class.clear()
+        # Parse the module.
+        ast = parser.suite(open(module).read())
+        module_info = easydocp.ModuleInfo(ast.totuple())
+        self.module(module_info.get_docstring())
+
+        # Class info.
+        for mclass in module_info.get_class_names():
+            class_info = module_info.get_class_info(mclass)            
+            if self.mclass(mclass, class_info.get_docstring(), with_hidden):
+                # The class should be included in the output.
+                self._class["Methods"] = []
+                for method in class_info.get_method_names():
+                    method_info = class_info.get_method_info(method)
+                    self.method(mclass, method, method_info.get_docstring(),
+                                with_hidden)
+            self.DEB("Finished class: " + mclass)
+            self._classes.append(copy.copy(self._class))
+            self._class.clear()                
         self._tproc.set("Classes", self._classes)
+
+        # Functions info.
+        for function in module_info.get_function_names():
+            function_info = module_info.get_function_info(function)
+            self.method("", function, function_info.get_docstring(),
+                        with_hidden)
+        self._tproc.set("Functions", self._functions)
+        
         return self._tproc.process(self._template)
 
     ##############################################
@@ -193,9 +209,14 @@ class Easydoc:
         """
         method = {}
         short, detailed, statements = self.parse(doc)
-        self.DEB("Method: " + name + ": short: " + short)
-        self.DEB("Method: " + name + ": statements: " + \
-                 pprint.pformat(statements))
+        if mclass:
+            self.DEB("Method: " + name + ": short: " + short)
+            self.DEB("Method: " + name + ": statements: " + \
+                     pprint.pformat(statements))
+        else:
+            self.DEB("Function: " + name + ": short: " + short)
+            self.DEB("Function: " + name + ": statements: " + \
+                     pprint.pformat(statements))            
 
         method["name"] = name
         method["class"] = mclass
@@ -247,8 +268,11 @@ class Easydoc:
             else:
                 self.warn("Unknown statement: " + param)
         else:
-            method["Parameters"] = parameters               
-            self._class["Methods"].append(method)
+            method["Parameters"] = parameters
+            if mclass:
+                self._class["Methods"].append(method)
+            else:
+                self._functions.append(method)
             return 1
                     
     def parse(self, doc):
@@ -266,6 +290,8 @@ class Easydoc:
         statements = []
         if not doc:
             return short, detailed, statements
+
+        doc = doc.replace("\"\"\"", "")
 
         rc = re.compile(r"""
             ^\s*(@)([-\w]+)
@@ -330,6 +356,4 @@ class Easydoc:
             if re.search(r"\S", p):
                 paragraphs.append( {"paragraph": self.mangle(p)} )
         return paragraphs
-    
-class EasydocError(Exception):
-    pass
+

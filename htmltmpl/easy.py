@@ -55,6 +55,7 @@ a {
         <TMPL_LOOP Detailed>
             <p><TMPL_VAR paragraph></p>
         </TMPL_LOOP>
+        <hr></hr>
 
         <!-- module requirements -->
 
@@ -67,12 +68,29 @@ a {
                 </TMPL_LOOP>
             </ul>
             </TMPL_IF>
+            <hr></hr>
         </TMPL_IF>
 
-        <!-- itemized list of classes and methods -->
+        <!-- table of functions -->
 
-        <p><strong>CLASSES:</strong></p>
+        <TMPL_IF Functions>
+        <p><strong>FUNCTIONS:</strong></p>        
+            <table border="0" cellpadding="2">
+                <TMPL_LOOP Functions>
+                   <tr>
+                      <td>&nbsp; &nbsp; &nbsp; &nbsp;</td>
+                      <td><a href="#function-<TMPL_VAR name>">
+                      <TMPL_VAR name></a>&nbsp; &nbsp;</td><td><TMPL_VAR short></td>
+                    </tr>
+                </TMPL_LOOP>
+             </table>
+             <hr></hr>
+         </TMPL_IF>
+
+        <!-- table of classes and methods -->
+
         <TMPL_IF Classes>
+        <p><strong>CLASSES:</strong></p>
         <ul>
             <TMPL_LOOP Classes>
                 <li>
@@ -94,10 +112,46 @@ a {
                  </li>
             </TMPL_LOOP>
         </ul>
+        <hr></hr>
         </TMPL_IF>
+
+
+        <!-- documentation of functions -->
+
+
+        <TMPL_LOOP Functions>
+        
+            <!-- function: <TMPL_VAR name> -->
+        
+            <h2>FUNCTION: <a name="function-<TMPL_VAR name>"></a><TMPL_VAR name>()</h2>
+            <p><strong><TMPL_VAR short></strong></p>
+            <TMPL_LOOP Detailed>
+                <p><TMPL_VAR paragraph></p>
+            </TMPL_LOOP>
+
+                <!-- parameters of method <TMPL_VAR name> -->
+
+                <p><strong>PARAMETERS:</strong></p>
+                <pre><TMPL_VAR header></pre>
+                <TMPL_IF Parameters>                
+                <ul>
+                <TMPL_LOOP Parameters>
+                <li>
+                    <p><strong><TMPL_VAR name></strong></p>
+                    <p><strong><em><TMPL_VAR short></em></strong></p>
+                    <TMPL_LOOP Detailed>
+                        <p><TMPL_VAR paragraph></p>
+                    </TMPL_LOOP>
+                </li>
+                </TMPL_LOOP>
+                </ul>
+                </TMPL_IF>
+                <hr></hr>
+        </TMPL_LOOP>
         <hr></hr>
 
-        <!-- documentation of the classes -->
+        <!-- documentation of classes -->
+
 
         <TMPL_LOOP Classes>
         
@@ -109,10 +163,10 @@ a {
                 <p><TMPL_VAR paragraph></p>
             </TMPL_LOOP>
 
-            <!-- itemized list of methods of class <TMPL_VAR name> -->
+            <!-- table of methods of class <TMPL_VAR name> -->
 
-            <p><strong>METHODS:</strong></p>
             <TMPL_IF Methods>
+            <p><strong>METHODS:</strong></p>
             <table border="0" cellpadding="2">
                 <TMPL_LOOP Methods>
                     <tr>
@@ -148,8 +202,8 @@ a {
                 <!-- parameters of method <TMPL_VAR name> -->
 
                 <p><strong>PARAMETERS:</strong></p>
-                <pre><TMPL_VAR header></pre>
-                <TMPL_IF Parameters>
+                <pre><TMPL_VAR header></pre>                
+                <TMPL_IF Parameters>                
                 <ul>
                 <TMPL_LOOP Parameters>
                 <li>
@@ -177,32 +231,36 @@ def main():
         optlist, args = getopt.getopt(sys.argv[1:], "h", ["with-hidden",
                                                           "help",
                                                           "debug",
+                                                          "template=",
                                                           "bgcolor=",
                                                           "textcolor=",
                                                           "linkcolor="])
     except:
         help("Invalid options.")
 
+    # Process parameters.
     module = None
-    template = TEMPLATE
+    output = None
     if len(args) == 0:
         help("Missing parameters.")
-    elif len(args) == 1:
-        module = args[0]
     elif len(args) == 2:
         module = args[0]
-        f = open(args[1])
-        template = f.read()
-        f.close()
+        output = args[1]
     else:
         help("Invalid number of parameters.")
 
+    # Process options.
     with_hidden, debug = 0, 0
     bgcolor, textcolor, linkcolor = BGCOLOR, TEXTCOLOR, LINKCOLOR
+    template = TEMPLATE    
     for x in optlist:
         opt, value = x
         if opt == "-h" or opt == "--help":
             help()
+        elif opt == "--template":
+            f = open(value)
+            template = f.read()
+            f.close()            
         elif opt == "--with-hidden":
             with_hidden = 1
         elif opt == "--debug":
@@ -214,7 +272,9 @@ def main():
         elif opt == "--linkcolor":
             linkcolor = value
     easy = easydoc.Easydoc(template, debug)
-    print easy.process(module, bgcolor, textcolor, linkcolor, with_hidden)
+    out = open(output, "w")
+    out.write(easy.process(module, bgcolor, textcolor, linkcolor, with_hidden))
+    out.close()
 
 def help(error=""):
     print "easydoc for Python, version", easydoc.VERSION
@@ -222,13 +282,15 @@ def help(error=""):
     print
     if error: print error
     print
-    print "easy <module> [<template>] [--with-hidden]"
-    print "                           [--bgcolor]"
-    print "                           [--textcolor]"
-    print "                           [--linkcolor]"
+    print "easy <module> <output> [--template]"
+    print "                       [--with-hidden]"
+    print "                       [--bgcolor]"
+    print "                       [--textcolor]"
+    print "                       [--linkcolor]"
     print
     print "     <module>      : filename of the module to document"
-    print "     <template>    : alternative template (optional)"
+    print "     <output>      : output file"
+    print "     --template    : alternative template filename"
     print "     --with-hidden : include sections marked as @hidden"
     print "     --bgcolor     : background color"
     print "     --textcolor   : text color"

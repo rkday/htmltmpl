@@ -389,7 +389,38 @@ class TemplateProcessor:
     """ """
 
     def __init__(self, html_escape=1, magic_vars=1, global_vars=0, debug=0):
-        """ Constructor. """
+        """ Constructor.
+
+            @header __init__(html_escape=1, magic_vars=1, global_vars=0,
+                             debug=0)
+
+            @param html_escape Enable or disable HTML escaping of variables.
+            This optional parameter is a flag that can be used to enable or
+            disable automatic HTML escaping of variables.
+            All variables are by default automatically HTML escaped. 
+            The escaping process substitutes HTML brackets, ampersands and
+            double quotes with appropriate HTML entities.
+            
+            @param magic_vars Enable or disable loop magic variables.
+            This parameter can be used to enable or disable
+            "magic" context variables, that are automatically defined inside
+            loops. Magic variables are enabled by default.
+
+            Refer to the language specification for description of these
+            magic variables.
+      
+            @param global_vars Globally activate global lookup of variables.
+            This optional parameter is a flag that can be used to specify
+            whether variables which cannot be found in the current scope
+            should be automatically looked up in enclosing scopes.
+
+            Automatic global lookup is disabled by default. Global lookup
+            can be overriden on a per-variable basis by the
+            <strong>GLOBAL</strong> parameter of a <strong>TMPL_VAR</strong>
+            statement.
+
+            @param debug Enable or disable debugging messages.
+        """
         self._html_escape = html_escape
         self._global_vars = global_vars       
         self._magic_vars = magic_vars
@@ -402,14 +433,28 @@ class TemplateProcessor:
         self._vars = {}        
 
     def set(self, var, value):
-        """ Set toplevel template variable or loop.
+        """ Associate a value with top-level template variable or loop.
 
+            A template identifier can represent either an ordinary variable
+            (string) or a loop.
+
+            To assign a value to a string identifier pass a scalar
+            as the 'value' parameter. This scalar will be automatically
+            converted to string.
+
+            To assign a value to a loop identifier pass a list of mappings as the
+            'value' parameter. The engine iterates over this list and assigns
+            values from the mappings to variables in a template loop block if a key
+            in the mapping corresponds to a name of a variable in the loop block.
+            The number of mappings contained in this list is equal to number of times
+            the loop block is repeated in the output.
+      
             @header set(var, value)
             @return No return value.
 
-            @param var Name of the template variable or loop
-
-            @param value
+            @param var Name of template variable or loop.
+            @param value The value to associate.
+            
         """
         if self.is_ordinary_var(value):
             if not var.islower():
@@ -426,8 +471,9 @@ class TemplateProcessor:
     def reset(self):
         """ Reset the template data.
 
-            This method must be called before
-            another processing of a template by the same instance.
+            This method resets the data contained in the template processor
+            instance. The template processor instance can be used to process
+            any number of templates.
 
             @header reset()
             @return No return value.             
@@ -438,10 +484,16 @@ class TemplateProcessor:
     def process(self, template):
         """ Process a compiled template. Return the result as string.
 
+            This method actually processes a template and returns
+            the result.
+
             @header process(template)
             @return Result of the processing as string.
 
-            @param template A compiled template
+            @param template A compiled template.
+            Value of this parameter must be an instance of the
+            <em>Template</em> class created either by the
+            <em>TemplateManager</em> or by the <em>TemplateCompiler</em>.
         """
         self.DEB("APP INPUT:")
         self.DEB(pprint.pformat(self._vars))
@@ -797,9 +849,31 @@ class TemplateProcessor:
 ##############################################
 
 class TemplateCompiler:
-    """ Preprocess, parse, tokenize and compile the template. """
+    """ Preprocess, parse, tokenize and compile the template.
+
+        This class parses the template and produces a 'compiled' form
+        of it. This compiled form is an instance of the <em>Template</em>
+        class. The compiled form is used as input for the TemplateProcessor
+        which uses it to actually process the template.
+
+        This class should be used direcly only when you need to compile
+        a template from a string. If your template is in a file, then you
+        should use the <em>TemplateManager</em> class which provides
+        a higher level interface to this class and also can save the
+        compiled template to disk in a precompiled form.
+    """
 
     def __init__(self, include=1, max_include=5, comments=1, debug=0):
+        """ Constructor.
+
+        @header __init__(include=1, max_include=5, comments=1, debug=0)
+
+        @param include Enable or disable included templates.
+        @param max_include Maximum depth of nested inclusions
+        @param comments Enable or disable template comments.
+        @param debug Enable or disable debugging messages.
+        """
+        
         self._include = include
         self._max_include = max_include
         self._comments = comments
@@ -814,6 +888,18 @@ class TemplateCompiler:
         self._include_level = 0
     
     def compile(self, file):
+        """ Compile template from a file.
+
+            @header compile(file)
+            @return Compiled template.
+            The return value is an instance of the <em>Template</em>
+            class.
+
+            @param file Filename of the template.
+            See the <em>prepare()</em> method of the <em>TemplateManager</em>
+            class for exaplanation of this parameter.
+        """
+        
         self.DEB("COMPILING FROM FILE: " + file)
         self._include_path = os.path.join(os.path.dirname(file), INCLUDE_DIR)
         preprocessed = self.preprocess(self.read(file))
@@ -823,6 +909,19 @@ class TemplateCompiler:
                         tokens, compile_params, self._debug)
 
     def compile_string(self, data):
+        """ Compile template from a string.
+
+            This method compiles a template from a string. The
+            template cannot include any templates.
+            <strong>TMPL_INCLUDE</strong> statements are ignored.
+
+            @header compile_string(data)
+            @return Compiled template.
+            The return value is an instance of the <em>Template</em>
+            class.
+
+            @param data String containing the template data.        
+        """
         self.DEB("COMPILING FROM STRING")
         self._include = 0
         preprocessed = self.preprocess(data)
@@ -991,9 +1090,18 @@ class TemplateCompiler:
 ##############################################
 
 class Template:
-    """ This class provides storage and methods for the compiled template
+    """ This class represents a compiled template.
+
+        This class provides storage and methods for the compiled template
         and associated metadata. It's serialized by pickle if we need to
-        save the compiled template to disk.
+        save the compiled template to disk in a precompiled form.
+
+        You should never instantiate this class directly. Always use the
+        <em>TemplateManager</em> or <em>TemplateCompiler</em> classes to
+        create the instances of this class.
+
+        The only method which you can directly use is the <em>is_uptodate</em>
+        method.
     """
     
     def __init__(self, version, file, include_files, tokens, compile_params,
@@ -1027,11 +1135,21 @@ class Template:
         self.DEB("NEw TMPLATE CREATED")
 
     def is_uptodate(self, compile_params=None):
-        """ Return true if this compiled template is up-to-date.
-            Return false, if it was changed on the disk.
-            Work by comparing modification times.
-            Also take modification times of all included templates
+        """ Check whether the compiled template is uptodate.
+
+            Returns true if this compiled template is uptodate.
+            Returns false, if the template source file was changed on the
+            disk since it was compiled.
+            Works by comparison of modification times.
+            Also takes modification times of all included templates
             into account.
+
+            @header is_uptodate(compile_params=None)
+            @return True if the template is uptodate, false otherwise.
+
+            @param compile_params Only for internal use.
+            Do not use this optional parameter. It's intended only for
+            internal use by the <em>TemplateManager</em>.
         """
         if not self._file:
             self.DEB("TEMPLATE COMPILED FROM A STRING")
@@ -1115,9 +1233,21 @@ class Template:
 ##############################################
 
 class TemplateError(Exception):
-    """ This exception is fatal. Raised on runtime or template syntax errors.
+    """ Fatal exception. Raised on runtime or template syntax errors.
 
-        The instance is no longer usable when the exception is raised. 
+        This exception is raised when a runtime error occurs or when a syntax
+        error in the template is found. It has one parameter which always
+        is a string containing a description of the error.
+
+        All potential IOError exceptions are handled by the module and are
+        converted to TemplateError exceptions. That means you should catch the
+        TemplateError exception if there is a possibility that for example
+        the template file will not be accesssible.
+
+        The exception can be raised by constructors or by any method of any
+        class.
+        
+        The instance is no longer usable when this exception is raised. 
     """
 
     def __init__(self, error):

@@ -71,14 +71,14 @@
           </p>
 
           <p>
-            Releases 1.15 and up are vastly redesigned to be multitask safe
+            Releases 1.15 and up are vastly redesigned to be multi-task safe
             and more flexible. The design and interface
             was completely changed to be much more object oriented and
             more maintainable. The downside of this change is that the
             interface is no longer similar to that of HTML::Template.
          </p>
          <p>
-            The module is multitask safe in terms of properly synchronized
+            The module is multi-task safe in terms of properly synchronized
             accesses to the precompiled templates that are loaded from and
             saved to disk. However, instances of any of its classes should
             <strong>NOT</strong> be shared by multiple threads.
@@ -113,206 +113,7 @@
 
     <!-- end of the top part -->
 
-
-    <hr></hr>    
-    <h2><a name="constructor"></a>The constructor</h2>
-    
-    <h3>Parameters:</h3>
-    
-    <h4>template</h4>
-    <p>
-      The first mandatory parameter 'template' is a filename of
-      the template. The module looks for this file in
-      the directories specified by the 'template_path' parameter.
-      The 'template_path' parameter must be specified, because
-      the module DOES NOT look for the template file in current
-      directory.
-    </p>
-    
-    <h4>html_escape</h4>
-    <p>
-      Optional parameter 'html_escape' is a flag that can
-      be used to enable or disable automatic HTML escaping of variables.
-      All variables are by default automatically HTML escaped. 
-      Escaping escapes HTML brackets, ampersands and double quotes.
-    </p>
-    
-    <h4>global_vars</h4>
-    <p>
-      Optional parameter 'global_vars' is a flag that can
-      be used to specify whether variables which cannot be found in
-      the current scope should be looked up in outer scopes.
-      Global vars are disabled by default.
-    </p>
-    
-    <h4>include</h4>
-    <p>
-      Optional parameter 'include' can be used to enable or disable
-      TMPL_INCLUDE inclusion of templates. Disabling of inclusion can
-      improve performance a little. Inclusion is enabled by default.
-    </p>
-    
-    <h4>strict_case</h4>
-    <p>
-      Optional parameter 'strict_case' can be used to enable or 
-      disable strict verification of case of letters in names of 
-      template variables and loops. See section 'Template syntax overview' 
-      for description of these rules. Strict case verification is 
-      enabled by default.
-    </p>
-    
-    <p>
-      You should not disable strict_case. The possibility is provided
-      only for compatibility with existing templates for HTML::Template.
-    </p>
-    
-    <p>
-      Loop names should not be used in TMPL_VAR statements if strict_case
-      is disabled.
-    </p>
-    
-    <h4>max_include</h4>
-    <p>
-      Optional parameter 'max_include' can be used to specify
-      maximum depth of TMPL_INCLUDEs. Max_include defaults
-      to 5. This setting prevents infinite recursive inclusions.
-    </p>
-    
-    <h4>precompile</h4>
-    <p>
-      Optional parameter 'precompile' can be used to enable or disable
-      creation and usage of precompiled templates.
-      A precompiled template is saved to the
-      same directory in which the template is located. You need write
-      permissions to that directory. 
-    </p>
-    
-    <p>    
-      Precompilation provides a significant performance boost because
-      it's not necessary to parse the templates over and over again.
-      The boost is especially noticeable during processing of templates
-      that include other templates. Comparison of modification times
-      of the main template and all included templates is used to
-      ensure that the precompiled templates are up-to-date. Templates are also
-      recompiled if the htmltmpl module is updated.
-    </p>
-    
-    <p>
-      TemplateError is raised when the precompiled template cannot be saved.
-      Compilation is enabled by default.
-    </p>
-
-    <p>
-      Precompilation is available only on UNIX and Windows platforms, because
-      proper file locking which is necessary to ensure multitask
-      safe behaviour is platform specific and is not implemented 
-      on other platforms. Attempts to enable precompilation on the other
-      platforms result in TemplateError exception.
-    </p>
-    
-    <h4>comments</h4>
-    <p>
-      Optional parameter 'comments' can be used to enable or disable
-      special template comments "### ". Disabling of comments can improve
-      performance a little. Comments are enabled by default.
-    </p>
-    
-    <h4>magic_vars</h4>
-    <p>
-      Optional parameter 'magic_vars' can be used to enable or disable
-      "magic" context variables, that are automatically defined inside
-      loops by the module. Magic variables are enabled by default.
-    </p>
-    
-    <h4>debug</h4>
-    <p>
-      Optional parameter 'debug' is a flag that can be used
-      to turn on debugging messages which are printed to stderr.
-      Debugging is disabled by default.
-    </p>
-    
-
-    <hr></hr>
-    <h2><a name="methods"></a>Methods</h2>
-    
-    <h3>set(variable_name, variable_value)</h3>
-    <p>
-      This method is used to assign values to template identifiers.
-    </p>
-    
-    <p>
-      Template identifier can represent either a string or a loop.
-      To assign a value to a string identifier pass a scalar
-      as the 'variable_value' parameter.
-      To assign a value to a loop identifier pass a list of mappings as the
-      'variable_value' parameter. The engine iterates over this list and assigns
-      values from the mappings to variables in the template if a key in the mapping
-      corresponds to a name of a variable in the corresponding loop block.
-    </p>
-    
-    <h3>process()</h3>
-    <p>
-      This method returns the processed template.
-    </p>
-    
-    <h3>reset()</h3>
-    <p>
-      This method resets all data set by the __setitem__() method.
-      This method must be called after a call to output(), when you
-      want to reuse the instance for another processing of the template
-      with different data. The template can optionally be cached if you reuse
-      the instance (see the 'cache' and 'blind_cache' parameters of 
-      the constructor).
-    </p>
-    
-    <h3>Example:</h3>
-    
-    <pre>
-<span class="keyword">from</span> htmltmpl <span class="keyword">import</span> Template
-        
-<span class="comment"># Create an instance of htmltmpl.
-</span>tmpl = Template(template = &quot;<span class="string">foo.tmpl</span>&quot;,
-                template_path = [&quot;<span class="string">/my/templates</span>&quot;])
-                
-<span class="comment"># Assign a string to template variable named &quot;title&quot;.
-</span>tmpl[&quot;<span class="string">title</span>&quot;] = &quot;<span class="string">My homepage</span>&quot;
-        
-<span class="comment"># Assign a loop that consists of two passes to template loop
-# named &quot;Customers&quot;. This loop is executed twice, 
-# once for each customer.
-</span>tmpl[&quot;<span class="string">Customers</span>&quot;] = [
-    { &quot;<span class="string">name</span>&quot; : &quot;<span class="string">Joe Sixpack</span>&quot;, &quot;<span class="string">city</span>&quot; : &quot;<span class="string">Los Angeles</span>&quot; },
-    { &quot;<span class="string">name</span>&quot; : &quot;<span class="string">Paul Newman</span>&quot;, &quot;<span class="string">city</span>&quot; : &quot;<span class="string">New York</span>&quot; }
-]
-        
-<span class="comment"># Process the template and print the result.
-</span><span class="keyword">print</span> tmpl.output()
-          </pre>
-    
-    
-    <hr></hr>
-    <h2><a name="exceptions"></a>Exceptions</h2>
-    
-    <h3>TemplateError</h3>
-    <p>
-      This exception is raised when an error occurs.
-      Its argument is a description of the error. It's derived from
-      Exception. Errors are either runtime errors (template file not found,
-      I/O error...) or template syntax errors. All these errors are fatal. 
-      The instance is no longer usable when the exception is raised.
-      All IOError exceptions that can be raised on I/O errors are handled
-      inside the module and converted to appropriate TemplateError exceptions.
-    </p>
-    
-    <p>
-      The exception can be raised by any method and by the constructor.
-    </p>
-    
-
-
     <!-- examples -->
-
-
 
     <hr></hr>
     <h2><a name="examples"></a>Examples</h2>

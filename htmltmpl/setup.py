@@ -9,5 +9,5 @@ setup(name = "htmltmpl",
       author_email = "tripie@cpan.org",
       url = "http://htmltmpl.sourceforge.net/",
       licence = "GNU GPL",
-      py_modules = ['htmltmpl']
+      py_modules = ['htmltmpl', 'easydoc', 'easydocp']
      )

@@ -47,9 +47,9 @@
           </ul>
         </td>
 
-                
+        
         <!-- the text right to the menu -->
-  
+        
 
         <td valign="top">
 
@@ -67,26 +67,21 @@
 
         </td>
       </tr>
-</table>
+    </table>
     
     <hr></hr>    
     <h2><a name="compat"></a>HTML::Template compatibility</h2>
     
     <p>    
-      Templates created for HTML::Template can be used with this engine.
+      Templates created for HTML::Template can be used with this engine
+      in case they do not violate character case rules of htmltmpl.
     </p>
     
     <p>
-      In some cases it may be necessary to set the parameter strict_case
-      of the constructor to false. This action disables strict rules related
-      to names of variables and loops (see the 'Template syntax overview'
-      section for description of these rules).
-    </p>
-   
-    <p>
-    <strong>WARNING:</strong>
+      <strong>WARNING:</strong>
       Template statements and their parameters must always be in uppercase.
-      This rule applies even if strict_case is false.
+      Variable names must always be in lowercase. Loop names must be in
+      lowercase, but capitalized.
     </p>
     
     <p>
@@ -203,7 +198,6 @@
     </p>
     <p>
       Statements must be completely in uppercase: for example "TMPL_VAR".
-      This rule is not affected by the strict_case setting.
       It improves readability of the templates a lot. It makes
       the statements easily distinguishable from normal XHTML tags,
       that are always in lowercase.
@@ -229,10 +223,7 @@
       "HTML", "URL" and "NONE" values of the ESCAPE parameter) must
       be completely in uppercase.
     </p>     
-    <p>
-      These rules are not affected by the strict_case setting.        
-    </p>
-    
+  
     
     <hr></hr>
     <h3>Identifiers</h3>
@@ -266,8 +257,7 @@
     </ul>
     
     <p>    
-      Unless the strict_case parameter of the constructor is 
-      explicitly set to false, these character case rules apply to the
+      Following character case rules apply to the
       names of variables and loops:
     </p>
     
@@ -275,12 +265,6 @@
       <li>Variable names must be completely in lowercase: myvar</li>
       <li>Loop names must be capitalized and in lowercase: Myloop</li>
     </ul>
-    
-    <p>
-      The strict_case parameter is provided only for compatibility
-      with existing templates for HTML::Template. You should not use
-      it if possible.
-    </p>
     
     
     <hr></hr>
@@ -379,7 +363,7 @@
     
     <p>
       Variables defined by the TMPL_VAR statements are substituted with values
-      associated by the application with corresponding identifiers.
+      associated with them by the <em>set()</em> method of TemplateProcessor.
     </p>
     
     <h4>Escaping of variables</h4>
@@ -426,14 +410,16 @@
     <p>    
       The TMPL_IF, /TMPL_IF, TMPL_ELSE, TMPL_UNLESS and /TMPL_UNLESS
       statements are conditionals.
-      They mark start and end of a block which is printed only when the
-      condition is true. Only names of variables or loops can be used
-      in the condition.
+      They mark start and end of a block that is included in the output
+      only when the condition is true.
+      Only names of variables or loops can be used
+      in the condition. Conditional blocks may contain other nested conditional
+      blocks.
     </p>
     
     <p>
       If name of a loop is used in a condition, then the condition is true
-      if the content of the loop will be printed at least once.
+      if the content of the loop will be included in the output at least once.
     </p>
     
     <h4>Examples:</h4>
@@ -466,7 +452,7 @@
     </p>
     
     <p>
-      Loops can contain other loops. Every loop introduces its own namespace
+      Loops can contain other nested loops. Every loop introduces its own namespace
       (scope) for variables. Variables located inside a loop cannot reference
       variables located outside the loop unless the 'global_vars' parameter
       of the constructor is true, or unless this parameter is overridden for
