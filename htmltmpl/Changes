@@ -1,4 +1,8 @@
 
+    1.18 :
+        - fix of 'doc/python.html'; removed link to the "Exceptions" section
+          which no longer exists there
+
     1.17 : 2001/09/03
     	- Added the "binary" flag to open() where it's appropriate.
             This could cause problems on Windows.

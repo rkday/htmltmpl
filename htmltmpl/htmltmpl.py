@@ -135,7 +135,7 @@ class TemplateManager:
             @param debug Enable or disable debugging messages.
             This optional parameter is a flag that can be used to enable
             or disable debugging messages which are printed to the standard
-            error output. The debugging messages are disabled by default.            
+            error output. The debugging messages are disabled by default.
         """
         # Save the optional parameters.
         # These values are not modified by any method.
@@ -448,12 +448,13 @@ class TemplateProcessor:
             as the 'value' parameter. This scalar will be automatically
             converted to string.
 
-            To assign a value to a loop identifier pass a list of mappings as the
-            'value' parameter. The engine iterates over this list and assigns
-            values from the mappings to variables in a template loop block if a key
-            in the mapping corresponds to a name of a variable in the loop block.
-            The number of mappings contained in this list is equal to number of times
-            the loop block is repeated in the output.
+            To assign a value to a loop identifier pass a list of mappings as
+            the 'value' parameter. The engine iterates over this list and
+            assigns values from the mappings to variables in a template loop
+            block if a key in the mapping corresponds to a name of a variable
+            in the loop block. The number of mappings contained in this list
+            is equal to number of times the loop block is repeated in the
+            output.
       
             @header set(var, value)
             @return No return value.

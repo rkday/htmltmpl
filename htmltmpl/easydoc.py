@@ -88,9 +88,8 @@ class Easydoc:
             @return String containing the resulting HTML documentation.
             
             @param module Filename of the module to document.
-            The module must be specified as filename. The module will be
-            executed, therefore untrusted modules should not be processed by
-            this method.
+            The module must be specified as filename. The module is not
+            imported nor executed, only parsed.
 
             @param bgcolor Set background color.
             Accepts any valid CSS color value.
