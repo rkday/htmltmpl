@@ -26,7 +26,7 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.01);
+define('_VERSION', 1.10);
 define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
 
 # All included templates must be placed in a subdirectory of
@@ -42,6 +42,7 @@ define('_PARAMS_NUMBER', 3);
 define('_PARAM_NAME', 1);
 define('_PARAM_ESCAPE', 2);
 define('_PARAM_GLOBAL', 3);
+define('_PARAM_GETTEXT_STRING', 1);
 
 # Platform dependent defaults.
 define('_DEBUG_NEWLINE_SEP', "\n");
@@ -108,7 +109,7 @@ class TemplateManager {
     var $_comments;
     
     function TemplateManager($include=TRUE, $max_include=5, $precompile=TRUE,
-                             $comments=TRUE) {
+                             $comments=TRUE, $gettext=FALSE) {
         # Constructor.
         #
         # param include: Enable or disable included templates.
@@ -161,6 +162,7 @@ class TemplateManager {
         $this->_max_include = $max_include;
         $this->_precompile = $precompile;
         $this->_comments = $comments;
+        $this->_gettext = $gettext;
         _DEB('INIT DONE');
     }
     
@@ -205,7 +207,8 @@ class TemplateManager {
                 else {
                     $compile_params = array($this->_include,
                                             $this->_max_include,
-                                            $this->_comments);
+                                            $this->_comments,
+                                            $this->_gettext);
                     if ($precompiled->is_uptodate($compile_params)) {
                         _DEB('PRECOMPILED: UPTODATE');
                         $compiled =& $precompiled;
@@ -265,7 +268,7 @@ class TemplateManager {
         # The method returns a REFERENCE to the template. You must use the
         # reference assignment when calling the method (=&) !        
         $tmplc = new TemplateCompiler($this->_include, $this->_max_include,
-                                      $this->_comments);
+                                      $this->_comments, $this->_gettext);
         return $tmplc->compile($file);
     }
     
@@ -751,6 +754,13 @@ class TemplateProcessor {
                     _DEB('CANNOT INCLUDE WARNING');
                 }                
 
+                elseif ($token == '<TMPL_GETTEXT') {
+                    $skip_params = TRUE;
+                    $text = $tokens[$i + _PARAM_GETTEXT_STRING];
+                    $out .= gettext($text);
+                    _DEB("GETTEXT: $text");
+                }
+                
                 else {
                     # Unknown processing directive.
                     __error("Invalid statement $token>.");
@@ -1176,24 +1186,110 @@ class TemplateCompiler {
             else {
                 # "Normal" template data.
                 if ($this->_gettext) {
-                    array_push($tokens, $this->gettext_tokens($statement));
+                    _DEB("PARSING GETTEXT STRINGS");
+                    $this->gettext_tokens($tokens, $statement);
                 }
-                array_push($tokens, $statement);
+                else {
+                    array_push($tokens, $statement);
+                }
             }
         }
-
         return $tokens;
     }
 
-    function gettext_tokens($str) {
+    function gettext_tokens(&$tokens, $str) {
         # Find gettext strings and return appropriate array of
         # processing tokens.
-        $tokens = array();
+        $chars = preg_split('//', $str, -1, PREG_SPLIT_NO_EMPTY);
+        $escaped = FALSE;
+        $gt_mode = FALSE;
+        $i = 0;
+        $buf = '';
 
-        foreach ($matches[1] as $match) {
-            
+        while(TRUE) {
+            if ($i == count($chars)) {
+                break;
+            }
+            if ($chars[$i] == '\\') {
+                $escaped = FALSE;
+                if ($chars[$i+1] == '\\') {
+                    $buf .= '\\';
+                    $i += 2;
+                    continue;
+                }
+                else if ($chars[$i+1] == '[' || $chars[$i+1] == ']') {
+                    $escaped = TRUE;
+                }
+                else {
+                    $buf .= '\\';
+                }
+            }
+            else if ($chars[$i] == '[' && $chars[$i+1] == '[') {
+                if ($gt_mode) {
+                    if ($escaped) {
+                        $escaped = FALSE;
+                        $buf .= '[';
+                    }
+                    else {
+                        $buf .= '[';
+                    }
+                }
+                else {
+                    if ($escaped) {
+                        $escaped = FALSE;
+                        $buf .= '[';
+                    }
+                    else {
+                        array_push($tokens, $buf);
+                        $buf = '';
+                        $gt_mode = TRUE;
+                        $i += 2;
+                        continue;
+                    }
+                }
+            }
+            else if ($chars[$i] == ']' && $chars[$i+1] == ']') {
+                if ($gt_mode) {
+                    if ($escaped) {
+                        $escaped = FALSE;
+                        $buf .= ']';
+                    }
+                    else {
+                        $this->add_gettext_token($tokens, $buf);
+                        $buf = '';
+                        $gt_mode = FALSE;
+                        $i += 2;
+                        continue;
+                    }
+                }
+                else {
+                    if ($escaped) {
+                        $escaped = FALSE;
+                        $buf .= ']';
+                    }
+                    else {
+                        $buf .= ']';
+                    }
+                }
+            }
+            else {
+                $escaped = FALSE;
+                $buf .= $chars[$i];
+            }
+            $i++;
         }
-        return $tokens;
+        
+        if ($buf) {
+            array_push($tokens, $buf);
+        }
+    }
+
+    function add_gettext_token(&$tokens, $str) {
+        _DEB("GETTEXT PARSER: TOKEN: $str");
+        array_push($tokens, '<TMPL_GETTEXT');
+        array_push($tokens, $str);
+        array_push($tokens, NULL);
+        array_push($tokens, NULL);
     }
 
     function strip_brackets($statement) {
