@@ -1,0 +1,27 @@
+
+    htmltmpl
+    ========
+
+    A PHP based templating engine for separation of code and HTML.
+      
+    To run the regression tests (recommended):
+    
+        Make sure your PHP CGI executable is in PATH and then execute:
+    
+        perl test.pl
+    
+
+    To use the module copy the file 'htmltmpl.php' to some place
+    readable by your scripts and put the following line to the top of them:
+
+        require('htmltmpl.php');
+
+
+    Documentation can be found in the 'doc' directory or at the homepage
+    of this module:
+    
+        http://htmltmpl.sourceforge.net/
+        
+    AUTHOR: Tomas Styblo, tripie@cpan.org
+    LICENSE: GNU GPL (included in file "LICENSE")
+   
