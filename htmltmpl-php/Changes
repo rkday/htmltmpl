@@ -1,4 +1,48 @@
 
+    1.14 : 2002/07/01
+        - WAP support => 
+          the ESCAPE option of TMPL_VAR statements can now be set to "WAP". 
+          Doing so will make the variable properly escaped for WML pages.
+          HTML escaping is not sufficient for WML pages, because in WML
+          the "$" character must be escaped as "$$" sequence.
+
+        - the prepare() method of the TemplateManager now accepts a new 
+          parameter - force_precompiled =>
+
+          param force_precompiled: Only use precompiled templates.
+          This parameter is useful when all your templates are precompiled
+          and located in a read-only directory. If the compiled
+          template cannot be found, an exception is raised. The engine 
+          does not check whether the compiled template is uptodate. 
+
+        - the set() method of TemplateProcessor now can be called with
+          either one or two parameters.
+
+          When it's called with two parameters, its behaviour is unchanged.
+          
+          When it's called with one parameter only, then the parameter must be
+          an associative array.  The function loops over this array, uses keys
+          of the array as names of variables and values of the array as values
+          of the variables. This can be used for fast multiassignemnts.  The
+          values itself may be associative arrays, in which case the assignment
+          is a loop assignment.
+
+        - the "URL" value of TMPL_VAR's ESCAPE parameter now performs not only
+          URL escaping, but URL escaping + HTML escaping
+
+        - TMPL_STATIC now also has the ESCAPE option, same as TMPL_VARs have
+        - TMPL_STATIC content is now by default automatically HTML-escaped
+
+    1.13 : 2002/01/08
+        - new feature: TMPL_STATIC - static variables resolved at 
+          template compile time. This works similar to the #define statement
+          of the C preprocessor. You can use it to turn repetitive strings
+          into some sort of small includes with no runtime performance penalty.
+          Typical usage: define colors or font sizes and then change them
+          in all your templates from one place. This is very useful if you
+          can't use CSS for some reason. Please check the updated docs for
+          more info and also for the new related watch_files() method.
+          
     1.12 : 2001/12/12
         - precompilation with gettext bugfix (compile_params missing gettext)
 

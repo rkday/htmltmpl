@@ -26,7 +26,7 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.12);
+define('_VERSION', 1.14);
 define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
 
 # All included templates must be placed in a subdirectory of
@@ -108,6 +108,8 @@ class TemplateManager {
     var $_precompile;
     var $_comments;
     var $_gettext;
+    var $_static;
+    var $_watch_files;
     
     function TemplateManager($include=TRUE, $max_include=5, $precompile=TRUE,
                              $comments=TRUE, $gettext=FALSE) {
@@ -164,10 +166,12 @@ class TemplateManager {
         $this->_precompile = $precompile;
         $this->_comments = $comments;
         $this->_gettext = $gettext;
+        $this->_static = array();
+        $this->_watch_files = array();
         _DEB('INIT DONE');
     }
     
-    function &prepare($file) {
+    function &prepare($file, $force_precompiled=FALSE) {
         # Factory mehod: Preprocess, parse, tokenize and compile the template.
         #    
         # If precompilation is enabled then this method tries to load
@@ -195,41 +199,70 @@ class TemplateManager {
         # if the parameter is a relative path. All included templates must
         # be placed in subdirectory <strong>'inc'</strong> of the 
         # directory in which the main template file is located.
-    
+        #
+        # param force_precompiled: Only use precompiled templates.
+        # This parameter is useful when all your templates are precompiled
+        # and located in a read-only directory. If the compiled
+        # template cannot be found, an exception is raised. The engine 
+        # does not check whether the compiled template is uptodate. 
+        # By default this is disabled.
+       
         $compiled = NULL;
         if ($this->_precompile) {
             if ($this->is_precompiled($file)) {
                 $precompiled =& $this->load_precompiled($file);
                 if (! $precompiled) {
-                    _DEB('PRECOMPILED: FORCED RECOMPILATION');
-                    $compiled =& $this->compile($file);
-                    $this->save_precompiled($compiled);
+                    if ($force_precompiled) {
+                        __error("Force precompiled active, but cannot load precompiled templates");
+                    }
+                    else {
+                        _DEB('PRECOMPILED: RECOMPILATION');
+                        $compiled =& $this->compile($file);
+                        $this->save_precompiled($compiled);
+                    }
                 }
                 else {
-                    $compile_params = array($this->_include,
-                                            $this->_max_include,
-                                            $this->_comments,
-                                            $this->_gettext);
-                    if ($precompiled->is_uptodate($compile_params)) {
-                        _DEB('PRECOMPILED: UPTODATE');
+                    if ($force_precompiled) {
+                        _DEB('PRECOMPILED: FORCING PRECOMPILED');
                         $compiled =& $precompiled;
                     }
                     else {
-                        _DEB('PRECOMPILED: NOT UPTODATE');
-                        $compiled =& $this->compile($file);
-                        $this->save_precompiled($compiled); 
+                        $compile_params = array($this->_include,
+                                                $this->_max_include,
+                                                $this->_comments,
+                                                $this->_gettext,
+                                                $this->_watch_files);
+                        if ($precompiled->is_uptodate($compile_params)) {
+                            _DEB('PRECOMPILED: UPTODATE');
+                            $compiled =& $precompiled;
+                        }
+                        else {
+                            _DEB('PRECOMPILED: NOT UPTODATE');
+                            $compiled =& $this->compile($file);
+                            $this->save_precompiled($compiled); 
+                        }
                     }
                 }                
             }
             else {
-                _DEB('PRECOMPILED: NOT PRECOMPILED');
-                $compiled =& $this->compile($file);
-                $this->save_precompiled($compiled);
+                if ($force_precompiled) {
+                    __error("Force precompiled active, but cannot load precompiled templates");
+                }
+                else {
+                    _DEB('PRECOMPILED: NOT PRECOMPILED');
+                    $compiled =& $this->compile($file);
+                    $this->save_precompiled($compiled);
+                }
             }
         }
         else {
-            _DEB('PRECOMPILATION DISABLED');
-            $compiled =& $this->compile($file);
+            if ($force_precompiled) {
+                __error("Force precompiled active, but precompilation is disabled");
+            }
+            else {
+                _DEB('PRECOMPILATION DISABLED');
+                $compiled =& $this->compile($file);
+            }
         }
 
         return $compiled;
@@ -259,7 +292,25 @@ class TemplateManager {
         }
         return $updated;
     }
-    
+  
+    function static_data($static) {
+        if (is_array($static)) {
+            $this->_static =& $static;
+        }
+        else {
+            __error("Parameter to static_data() must be associative array.");
+        }
+    }
+  
+    function watch_files($files) {
+        if (is_array($files)) {
+            $this->_watch_files =& $files;
+        }
+        else {
+            __error("Parameter to watch_files() must be associative array.");
+        }
+    }
+  
     ##############################################
     #              PRIVATE METHODS               #
     ##############################################  
@@ -270,6 +321,8 @@ class TemplateManager {
         # reference assignment when calling the method (=&) !        
         $tmplc = new TemplateCompiler($this->_include, $this->_max_include,
                                       $this->_comments, $this->_gettext);
+        $tmplc->static_data($this->_static);
+        $tmplc->watch_files($this->_watch_files);
         return $tmplc->compile($file);
     }
     
@@ -431,47 +484,47 @@ class TemplateProcessor {
         $this->_current_pos = 0;
     }
     
-    function set($var, $value) {
+    function set($var, $value=NULL) {
         # Associate a value with top-level template variable or loop.
         #
         # A template identifier can represent either an ordinary variable
         # (string) or a loop.
         #
-        # To assign a value to a string identifier pass a scalar
-        # as the 'value' parameter. This scalar will be automatically
-        # converted to string.
+        # To assign a value to a string identifier pass a scalar as the 'value'
+        # parameter. This scalar will be automatically converted to string.
         #
-        # To assign a value to a loop identifier pass a list of mappings as
-        # the 'value' parameter. The engine iterates over this list and
-        # assigns values from the mappings to variables in a template loop
-        # block if a key in the mapping corresponds to a name of a variable
-        # in the loop block. The number of mappings contained in this list
-        # is equal to number of times the loop block is repeated in the
-        # output.
+        # To assign a value to a loop identifier pass a list of mappings as the
+        # 'value' parameter. The engine iterates over this list and assigns
+        # values from the mappings to variables in a template loop block if a
+        # key in the mapping corresponds to a name of a variable in the loop
+        # block. The number of mappings contained in this list is equal to
+        # number of times the loop block is repeated in the output.
         #
-        # returns: No return value.
-        # param var: Name of template variable or loop.
-        # param value: The value to associate.
+        # The method can be called with either one or two parameters.  When
+        # it's called with two parameters, its behaviour is exactly as
+        # described above.
+        #
+        # When it's called with one parameter only, then the parameter must be
+        # an associative array.  The function loops over this array, uses keys
+        # of the array as names of variables and values of the array as values
+        # of the variables. This can be used for fast multiassignemnts.  The
+        # values itself may be associative arrays, in which case the assignment
+        # is a loop assignment.
+        #
+        # returns: No return value.  param var: Name of template variable or
+        # loop.  param value: The value to associate.
 
         # The correctness of character case is verified only for top-level
         # variables.
-        if (! is_array($value)) {
-            # template top-level ordinary variable
-            if ($var != strtolower($var)) {
-                __error("Invalid variable name '$var'.");
+
+        if (is_array($var) && $value == NULL) {
+            foreach ($var as $mkey => $mvalue) {
+                $this->real_set($mkey, $mvalue);
             }
         }
         else {
-            # template top-level loop
-            $first_char = $var{0};
-            $rest = substr($var, 1);
-            if ($first_char != strtoupper($first_char) ||
-                $rest != strtolower($rest)) {
-                __error("Invalid loop name '$var'.");
-            }
+            $this->real_set($var, $value);
         }
-        $this->_vars[$var] = $value;
-        _DEB("VALUE SET: $var");
     }
     
     function reset($keep_data=FALSE) {
@@ -585,7 +638,7 @@ class TemplateProcessor {
                         $value = $this->find_value($var, $loop_name,
                                                    $loop_pass, $loop_total,
                                                    $global);
-                        $out .= $this->escape($value, $escape);
+                        $out .= $this->escape($this->_html_escape, $value, $escape);
                         _DEB("VAR: $var");
                     }
                 }
@@ -794,6 +847,26 @@ class TemplateProcessor {
     #              PRIVATE METHODS               #
     ##############################################
     
+    function real_set($var, $value) {
+        if (! is_array($value)) {
+            # template top-level ordinary variable
+            if ($var != strtolower($var)) {
+                __error("Invalid variable name '$var'.");
+            }
+        }
+        else {
+            # template top-level loop
+            $first_char = $var{0};
+            $rest = substr($var, 1);
+            if ($first_char != strtoupper($first_char) ||
+                $rest != strtolower($rest)) {
+                __error("Invalid loop name '$var'.");
+            }
+        }
+        $this->_vars[$var] = $value;
+        _DEB("VALUE SET: $var");
+    }
+    
     function find_value($var, &$loop_name, &$loop_pass, &$loop_total,
                         $global_override=NULL) {
         # Search the $this->_vars data structure to find variable var
@@ -944,19 +1017,23 @@ class TemplateProcessor {
         }    
     }
     
-    function escape($str, $override=NULL) {
+    function escape($default, $str, $override=NULL) {
         # Escape a string either by HTML escaping or by URL escaping.
-        if (($this->_html_escape && $override != 'NONE' && $override != '0' &&
-             $override != 'URL') || $override == 'HTML' || $override == '1') {
+        if (($default && $override != 'NONE' && $override != '0' &&
+             $override != 'URL' && $override != 'WAP') 
+                || $override == 'HTML' || $override == '1') {
             return htmlspecialchars($str);
         }
         elseif ($override == 'URL') {
-            return urlencode($str);
+            return htmlspecialchars(urlencode($str));
+        }
+        elseif ($override == 'WAP') {
+            return str_replace('$', '$$', htmlspecialchars($str));
         }
         else {
             return $str;
         }
-    }    
+    }
 }
 
 
@@ -985,6 +1062,8 @@ class TemplateCompiler {
     var $_include_files;
     var $_include_level;
     var $_include_path;
+    var $_static;
+    var $_watch_files;
     
     function TemplateCompiler($include=TRUE, $max_include=5, $comments=TRUE,
                               $gettext=FALSE) {
@@ -1007,8 +1086,50 @@ class TemplateCompiler {
         # infinite recursive includes.
         $this->_include_level = 0;
         $this->_include_path = NULL;
+
+        # Static data.
+        $this->_static = array();
+        $this->_watch_files = array();
     }
+   
+    function static_data($static) {
+        # Define static template variables.
+        #
+        # First parameter is an associative array which contains
+        # names of the variables (keys of the array) and their corresponding
+        # values (values of the array).
+        #
+        # param static: Dictionary of name/value pairs. 
     
+        if (is_array($static)) {
+            $this->_static =& $static;
+        }
+        else {
+            __error("Parameter to static_data() must be associative array.");
+        }
+    }
+
+    function watch_files($files) {
+        # Monitor specified files for changes. 
+        #
+        # This function can be used to monitor files for changes. 
+        # If a file changes, then the template will be automatically
+        # recompiled.
+        #
+        # This is very useful if you use static variables (TMPL_STATIC)
+        # and store their values in a separate file. Please consult
+        # language documentation for more info on static variables.
+        #
+        # param files: An array of names of files to monitor
+        
+        if (is_array($files)) {
+            $this->_watch_files =& $files;
+        }
+        else {
+            __error("Parameter to watch_files() must be associative array.");
+        }
+    }
+   
     function &compile($file) {
         # Compile a template from a file.
         #
@@ -1023,8 +1144,11 @@ class TemplateCompiler {
         $compile_params = array($this->_include,
                                 $this->_max_include,
                                 $this->_comments,
-                                $this->_gettext);
-        return new Template(_VERSION, $file, $this->_include_files,
+                                $this->_gettext,
+                                $this->_watch_files);
+        return new Template(_VERSION, $file, 
+                            array_merge($this->_include_files, 
+                                        $this->_watch_files),
                             $tokens, $compile_params);
     }
     
@@ -1044,7 +1168,8 @@ class TemplateCompiler {
         $compile_params = array($this->_include,
                                 $this->_max_include,
                                 $this->_comments,
-                                $this->_gettext);
+                                $this->_gettext,
+                                $this->_watch_files);
         return new Template(_VERSION, NULL, NULL, $tokens, $compile_params);
     }
     
@@ -1184,10 +1309,24 @@ class TemplateCompiler {
                 $statement = $this->strip_brackets($statement);
                 $params = preg_split("|\s+|", $statement, $NO_LIMIT,
                                      PREG_SPLIT_NO_EMPTY);
-                array_push($tokens, $this->find_directive($params));
-                array_push($tokens, $this->find_name($params));
-                array_push($tokens, $this->find_param('ESCAPE', $params));
-                array_push($tokens, $this->find_param('GLOBAL', $params));
+                $directive = $this->find_directive($params);
+                if ($directive == '<TMPL_STATIC') {
+                    $stvar = $this->find_name($params);
+                    $escape = $this->find_param('ESCAPE', $params);
+                    if (isset($this->_static[$stvar])) {
+                        array_push($tokens, TemplateProcessor::escape(TRUE, 
+                            $this->_static[$stvar], $escape));
+                    }
+                    else {
+                        __error("Cannot find STATIC data for '$st'.");
+                    }
+                }
+                else {
+                    array_push($tokens, $directive);
+                    array_push($tokens, $this->find_name($params));
+                    array_push($tokens, $this->find_param('ESCAPE', $params));
+                    array_push($tokens, $this->find_param('GLOBAL', $params));
+                }
             }
             else {
                 # "Normal" template data.

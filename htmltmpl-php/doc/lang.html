@@ -353,6 +353,10 @@
         <td><strong>TMPL_BOUNDARY</strong></td>
         <td>&nbsp;</td>
       </tr>
+      <tr>
+        <td><strong>TMPL_STATIC</strong></td>
+        <td>NAME, ESCAPE</td>
+      </tr>
     </table>
     
     <p></p>
@@ -431,10 +435,16 @@
     </p>
     <ul>
       <li>HTML : enable HTML escaping</li>
-      <li>URL  : enable URL escaping</li>
+      <li>URL  : enable URL + HTML escaping (first URL-escapes, then HTML-escapes)</li>
+      <li>WAP  : enable WML escaping (for WAP variables: "$" ==&gt; "$$")</li>
       <li>NONE : disable escaping</li>
     </ul>
-    
+   
+    <p>
+        The ESCAPE parameter can be used with both TMPL_VAR and TMPL_STATIC
+        statements. TMPL_STATIC variables are by default always HTML-escaped.
+    </p>
+   
     <h4>Global look-up of variables</h4>
     <p>
       All variables that are inside a loop are local to that loop.
@@ -635,7 +645,44 @@
     This is part three.
     </pre>
     
+    <hr></hr>
+    <h3>Static template variables (TMPL_STATIC)</h3>
+    <p>
+        Static template variables are similar to TMPL_VARs, but are intended
+        to represent static values, that never change. They can be useful
+        when some string appears many times in a template, or in various
+        different templates.
+    </p>
+
+    <p>
+        Static variables are in some way similar to TMPL_INCLUDE statements,
+        except that they are processed much more faster and are typically used
+        for short strings.
+    </p>
+
+    <p> Typical usage of static variables is to emulate CSS classes, when you
+    cannot use CSS because of some browser compatibility problems. You can, for
+    example, define a static variable called "lightred2" and use it in all
+    places where you need to assign that color. This provides an easy way to
+    change it later from single place.  </p>
     
+
+    <p>
+        Static variables are resolved during compilation phase
+        and cannot be changed without template recompilation.
+    </p>
+
+    <p>
+        You can use the <b>static_data()</b> method
+        of the <i>TemplataManager</i> class to define static variables.
+        If you decide to store values of your static variables in a separate
+        file, than you should also look at the <b>watch_files()</b> method.
+        This method can be used to monitor any changes of that file, and thus
+        force recompilation of the template, when you change value of
+        a static variable.
+    </p>
+
+
     <!-- Example -->
         
     <hr></hr>
