@@ -823,7 +823,7 @@ class TemplateProcessor {
             }
         }
             
-        if ($scope[$var]) {
+        if (isset($scope[$var])) {
             # Value exists in current loop.
             if (is_array($scope[$var])) {
                 # The requested value is a loop.
