@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name = "htmltmpl",
-      version = "1.16",
+      version = "1.17",
       description = "Templating engine for separation of code and HTML.",
       author = "Tomas Styblo",
       author_email = "tripie@cpan.org",

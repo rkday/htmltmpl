@@ -79,7 +79,8 @@ class Easydoc:
         self._template = TemplateCompiler().compile_string(template)
         self._tproc = TemplateProcessor(html_escape=0)            
                     
-    def process(self, module, bgcolor, textcolor, linkcolor, with_hidden=0):
+    def process(self, module, bgcolor, textcolor, linkcolor, methodbg,
+                with_hidden=0):
         """ Create documentation for a module.
 
             @header process(module, bgcolor, textcolor, linkcolor,
@@ -109,6 +110,7 @@ class Easydoc:
         self._tproc.set("bgcolor", bgcolor)
         self._tproc.set("textcolor", textcolor)
         self._tproc.set("linkcolor", linkcolor)
+        self._tproc.set("methodbg", methodbg)
 
         # Parse the module.
         ast = parser.suite(open(module).read())

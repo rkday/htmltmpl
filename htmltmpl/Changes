@@ -1,4 +1,16 @@
 
+    1.17 : 2001/09/03
+    	- Added the "binary" flag to open() where it's appropriate.
+            This could cause problems on Windows.
+        - The most important function - TemplateProcessor().process() - 
+          was optimized and is now twice faster. The template
+          'test/complex.tmpl' can be processed 20x per second on my K6-350,
+          when it's precompiled in memory.
+        - The default template of easydoc was somewhat enhanced and is now
+          indented properly.
+        - easy.py has new option "--methodbg"
+  
+
     1.16 : 2001/09/02
         - bugfix in easydoc: hidden classes were not hidden
 

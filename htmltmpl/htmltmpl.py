@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.16
+    @version        1.17
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.16
+__version__ = 1.17
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.
@@ -185,10 +185,6 @@ class TemplateManager:
         """
         compiled = None
         if self._precompile:
-            # Check if we have write permission to the template's directory.
-            if not os.access(os.path.dirname(os.path.abspath(file)), os.W_OK):
-                raise TemplateError, "Cannot save precompiled templates: "\
-                                     "write permission denied."
             if self.is_precompiled(file):
                 try:
                     precompiled = self.load_precompiled(file)
@@ -308,7 +304,7 @@ class TemplateManager:
             remove_bad = 0
             file = None
             try:
-                file = open(filename)
+                file = open(filename, "rb")
                 self.lock_file(file, LOCK_SH)
                 precompiled = cPickle.load(file)
             except IOError, (errno, errstr):
@@ -345,11 +341,16 @@ class TemplateManager:
             @hidden
         """
         filename = template.file() + "c"   # creates "template.tmplc"
+        # Check if we have write permission to the template's directory.
+        tdir = os.path.dirname(os.path.abspath(filename))
+        if not os.access(tdir, os.W_OK):
+            raise TemplateError, "Cannot save precompiled templates "\
+                                 "to '%s': write permission denied." % tdir
         try:
             remove_bad = 0
             file = None
             try:
-                file = open(filename, "w")   # may truncate existing file
+                file = open(filename, "wb")   # may truncate existing file
                 self.lock_file(file, LOCK_EX)
                 BINARY = 1
                 READABLE = 0
@@ -501,7 +502,7 @@ class TemplateProcessor:
             <em>TemplateManager</em> or by the <em>TemplateCompiler</em>.
         """
         self.DEB("APP INPUT:")
-        self.DEB(pprint.pformat(self._vars))
+        if self._debug: pprint.pprint(self._vars, sys.stderr)
         
         # Total number of parameters in regexp in parse_template().
         # Increment if adding a parameter to any statement.
@@ -723,8 +724,9 @@ class TemplateProcessor:
         scope = self._vars
         globals = []
         for i in range(len(loop_name)):            
-            # If global_vars is on then push the value on the stack.
-            if self.is_global_on(global_override) and scope.has_key(var) and \
+            # If global lookup is on then push the value on the stack.
+            if ((self._global_vars and global_override != "0") or \
+                 global_override == "1") and scope.has_key(var) and \
                self.is_ordinary_var(scope[var]):
                 globals.append(scope[var])
             
@@ -732,23 +734,23 @@ class TemplateProcessor:
             if scope.has_key(loop_name[i]) and scope[loop_name[i]]:
                 scope = scope[loop_name[i]][loop_pass[i]]
             else:
-                self.DEB("FIND: NO LOOP: " + str(var))
                 return ""
             
         if scope.has_key(var):
+            # Value exists in current loop.
             if type(scope[var]) == ListType:
                 # The requested value is a loop.
                 # Return total number of its passes.
-                self.DEB("FIND: LOOP: " + str(var))
                 return len(scope[var])
             else:
-                self.DEB("FIND: VAR: " + str(var))
                 return scope[var]
-        elif globals and self.is_global_on(global_override):
-            self.DEB("FIND: GLOBAL: " + str(var))
+        elif globals and \
+             ((self._global_vars and global_override != "0") or \
+               global_override == "1"):
+            # Return globally looked up value.
             return globals.pop()
         else:
-            self.DEB("FIND: NO VAR: " + str(var))
+            # No value found.
             if var[0].isupper():
                 # This is a loop name.
                 # Return zero, because the user wants to know number
@@ -835,15 +837,6 @@ class TemplateProcessor:
         """
         if type(var) == StringType or type(var) == IntType or \
            type(var) == LongType or type(var) == FloatType:
-            return 1
-        else:
-            return 0
-
-    def is_global_on(self, override=""):
-        """ Return true if global vars is enabled.
-            @hidden
-        """
-        if (self._global_vars and override != "0") or override == "1":
             return 1
         else:
             return 0
@@ -953,7 +946,7 @@ class TemplateCompiler:
         try:
             f = None
             try:
-                f = open(filename)
+                f = open(filename, "r")
                 data = f.read()
             except IOError, (errno, errstr):
                 raise TemplateError, "IO error while reading template '%s': "\
@@ -1004,7 +997,6 @@ class TemplateCompiler:
             to prevent infinite recursion.
             @hidden
         """
-        INCLUDED_TEMPLATE = 1
         INCLUDE_PARAMS = 1
         PARAM_NAME = 1
         pattern = r"""
