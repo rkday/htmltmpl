@@ -11,7 +11,7 @@
 
     <h3>inc2 include, greeting: Hello !</h3> 
 
-    <p>Comments full-path include</p>
+    <p>Comments include</p>
 
     <h3>inc2 include, greeting: Hello !</h3> 
     </body>

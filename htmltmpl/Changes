@@ -1,4 +1,30 @@
 
+    1.15 : 2001/09/01
+        - !! This release is a major redesign of the module.
+             It's incompatible with code using the old interface.
+             I tried to make the old interface as similar to HTML::Template
+             as possible, but it apparently was not a good idea, because
+             design of HTML::Template is not much object oriented.
+             It would be a major pain to implement that in Java.
+             So, please check the documentation for description of the
+             new much more flexible interface. !!
+           
+        - The module is now multitask safe on UNIX and Windows
+          platforms (precompiled '.tmplc' files are now properly locked).
+          On Macintosh the locking is not implemented and precompilation
+          is disabled on that platform. Anyone willing to implement the 
+          file locking on Mac ?
+
+        - Corrupted or incompatible .tmplc files are now transparently
+          detected, removed and recreated.
+
+        - Templates are now recompiled, if the precompiled form was compiled
+          with different 'include', 'max_include' or 'comments' settings.
+
+        - Templates now can be compiled also from strings.
+
+        - Test suite enhancements.
+
     1.14 : 2001/08/26
         - documentation updates
 

@@ -1,25 +1,14 @@
 #!/usr/bin/env python
 
 TEST = "cached"
-
-import sys
-import os
-sys.path.insert(0, "..")
-
-from htmltmpl import Template
-
-tmpl = Template(template = TEST + ".tmpl",
-                template_path = ["."],
-                compile = 0,
-                cache = 1,
-                debug = "debug" in sys.argv)
+execfile("head.inc")
 
 #######################################################
 
-def fill(tmpl):
-    tmpl["title"] = "Template world."
-    tmpl["greeting"] = "Hello !"
-    tmpl["Boys"] = [
+def fill(tproc):
+    tproc.set("title", "Template world.")
+    tproc.set("greeting", "Hello !")
+    tproc.set("Boys", [
         { "name" : "Tomas",  "age" : 19 },
         { "name" : "Pavel",  "age" : 34 },
         { "name" : "Janek",  "age" : 67 },
@@ -32,31 +21,19 @@ def fill(tmpl):
         { "name" : "Marek",  "age" : 54 },
         { "name" : "Peter",  "age" : 42 },
         { "name" : "Beda",   "age" : 87 }
-    ]
+    ])
 
 #######################################################
 
-fill(tmpl)
-tmpl.output()
-tmpl.reset()
+fill(tproc)
+tproc.process(template)
+tproc.reset()
 
-fill(tmpl)
-tmpl.output()
-tmpl.reset()
+fill(tproc)
+tproc.process(template)
+tproc.reset()
 
-fill(tmpl)
-output = tmpl.output()
+fill(tproc)
+output = tproc.process(template)
 
-if "out" in sys.argv:
-    sys.stdout.write(output)
-    sys.exit(0)
-
-res = open("%s.res" % TEST).read()
-
-print TEST, "...",
-
-if output == res:
-    print "OK"
-else:
-    print "FAILED"
-    open("%s.fail" % TEST, "w").write(output)
+execfile("foot.inc")

@@ -1,7 +1,7 @@
 
 import MySQLdb
 import MySQLdb.cursors
-from htmltmpl import Template
+from htmltmpl import TemplateManager, TemplateProcessor
 
 # Define some constants.
 DB = "test"
@@ -18,12 +18,11 @@ TABLE = """
     
 """
 
-# Create an instance of htmltmpl.
-tmpl = Template(template = "products.tmpl",
-                template_path = ["."])
+template = TemplateManager().prepare("products.tmpl")
+tproc = TemplateProcessor()
                 
 # Assign a string to template variable named "title".
-tmpl["title"] = "Our products"
+tproc.set("title", "Our products")
         
 # Connect the database. Create the table.
 db = MySQLdb.connect(db = DB, user = USER, passwd = PASSWD,
@@ -66,7 +65,7 @@ db.close()
 # Assign the products list to template loop identifier 'Products'.
 # NOTE: htmltmpl automatically converts all the values
 # to strings using str().
-tmpl["Products"] = products
+tproc.set("Products", products)
         
 # Process the template and print the result.
-print tmpl.output()
+print tproc.process(template)

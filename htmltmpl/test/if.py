@@ -1,38 +1,14 @@
 #!/usr/bin/env python
 
 TEST = "if"
-
-import sys
-import os
-sys.path.insert(0, "..")
-
-from htmltmpl import Template
-
-tmpl = Template(template = TEST + ".tmpl",
-                template_path = ["."],
-                compile = 0,
-                debug = "debug" in sys.argv)
+execfile("head.inc")
 
 #######################################################
 
-tmpl["true"] = 1
-tmpl["false"] = 0
-tmpl["true2"] = 1
+tproc.set("true", 1)
+tproc.set("false", 0)
+tproc.set("true2", 1)
 
 #######################################################
 
-output = tmpl.output()
-
-if "out" in sys.argv:
-    sys.stdout.write(output)
-    sys.exit(0)
-
-res = open("%s.res" % TEST).read()
-
-print TEST, "...",
-
-if output == res:
-    print "OK"
-else:
-    print "FAILED"
-    open("%s.fail" % TEST, "w").write(output)
+execfile("foot.inc")

@@ -6,20 +6,18 @@ import sys
 import os
 sys.path.insert(0, "..")
 
-from htmltmpl import Template
+from htmltmpl import TemplateManager, TemplateProcessor
 
-tmpl = Template(template = TEST + ".tmpl",
-                template_path = ["."],
-                compile = 1,
-                cache = 0,
-                debug = "debug" in sys.argv)
+man = TemplateManager(precompile = 1, debug = "debug" in sys.argv)
+template = man.prepare(TEST + ".tmpl")
+tproc = TemplateProcessor(debug = "debug" in sys.argv)
 
 #######################################################
 
-def fill(tmpl):
-    tmpl["title"] = "Template world."
-    tmpl["greeting"] = "Hello !"
-    tmpl["Boys"] = [
+def fill(tproc):
+    tproc.set("title", "Template world.")
+    tproc.set("greeting", "Hello !")
+    tproc.set("Boys", [
         { "name" : "Tomas",  "age" : 19 },
         { "name" : "Pavel",  "age" : 34 },
         { "name" : "Janek",  "age" : 67 },
@@ -32,20 +30,20 @@ def fill(tmpl):
         { "name" : "Marek",  "age" : 54 },
         { "name" : "Peter",  "age" : 42 },
         { "name" : "Beda",   "age" : 87 }
-    ]
+    ])
 
 #######################################################
 
-fill(tmpl)
-tmpl.output()
-tmpl.reset()
+fill(tproc)
+tproc.process(template)
+tproc.reset()
 
-fill(tmpl)
-tmpl.output()
-tmpl.reset()
+fill(tproc)
+tproc.process(template)
+tproc.reset()
 
-fill(tmpl)
-output = tmpl.output()
+fill(tproc)
+output = tproc.process(template)
 
 if "out" in sys.argv:
     sys.stdout.write(output)

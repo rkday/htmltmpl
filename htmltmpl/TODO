@@ -1,8 +1,6 @@
 
-    - Template cache in IPC shared memory which could be shared
-      by CGI processes to store compiled templates would be nice.
-      The pyipc module could be used here.
-      It's probably not worth the effort, though. It also wouldn't work
-      on any platform except UNIX.
-      
+    - Locking of .tmplc files on Macintosh to make the module thread safe
+      on this platform (making the precompilation of templates possible 
+      on this platform).
+
     

@@ -1,10 +1,12 @@
 
-from htmltmpl import Template
-tmpl = Template(template = "template.tmpl",
-                template_path = ["."])
+from htmltmpl import TemplateManager, TemplateProcessor
+
+# Compile or load already precompiled template.
+template = TemplateManager().prepare("template.tmpl")
+tproc = TemplateProcessor()
 
 # Set the title.
-tmpl["title"] = "Our customers"
+tproc.set("title", "Our customers")
 
 # Create the 'Customers' loop.
 customers = []
@@ -23,7 +25,7 @@ customer["city"] = "New York"
 customer["new"] = 1
 customers.append(customer)
 
-tmpl["Customers"] = customers
+tproc.set("Customers", customers)
 
 # Print the processed template.
-print tmpl.output()
+print tproc.process(template)
