@@ -86,7 +86,8 @@ function _set_last_item(&$array, $value) {
 }
 
 function __error($msg) {
-    user_error($msg, E_USER_ERROR);
+    user_error("HTMLTMPL: $msg ... terminating script execution.",
+               E_USER_ERROR);
 }
 
 ##############################################
@@ -297,7 +298,7 @@ class TemplateManager {
         
         # Open the file.
         if (! ($precompiled_file = fopen($filename, 'rb'))) {
-            __error("Cannot open precompiled template '$filename'");
+            __error("Cannot open precompiled template '$filename'.");
             exit;
         }
         
@@ -308,7 +309,7 @@ class TemplateManager {
         
         # Close it.
         if (! fclose($precompiled_file)) {
-            __error("Cannot close precompiled template '$filename'");
+            __error("Cannot close precompiled template '$filename'.");
             exit;
         }
         ignore_user_abort($old_ignore_user_abort);
@@ -529,7 +530,7 @@ class TemplateProcessor {
         # print_r($tokens);     # debugging - enable to see app input
 
         if ($part != NULL && ($part == 0 || $part < $this->_current_part)) {
-            __error('htmltmpl - process(): invalid part number');
+            __error('htmltmpl - process(): invalid part number.');
             exit;
         }    
         
@@ -734,7 +735,7 @@ class TemplateProcessor {
                         _DEB('ELSE: DISABLE');
                     }
                     else {
-                        __error('BUG: ELSE: INVALID FLAG');
+                        __error('BUG: ELSE: INVALID FLAG.');
                         exit;
                     }                
                 }
@@ -791,7 +792,7 @@ class TemplateProcessor {
             exit;
         }
         if ($output_control) {
-            __error('Missing </TMPL_IF> or </TMPL_UNLESS>');
+            __error('Missing </TMPL_IF> or </TMPL_UNLESS>.');
             exit;
         }
 
@@ -1064,18 +1065,18 @@ class TemplateCompiler {
         
         # Does the file exist ?
         if (! file_exists($filename)) {
-            __error("Template '$filename' does not exist");
+            __error("Template '$filename' does not exist.");
             exit;
         }
         
         # Read it.
         if (! ($template_file = fopen($filename, 'r'))) {
-            __error("Cannot open template '$filename'");
+            __error("Cannot open template '$filename'.");
             exit;
         }
         $data = fread($template_file, filesize($filename));
         if (! fclose($template_file)) {
-            __error("Cannot close template '$filename'");
+            __error("Cannot close template '$filename'.");
             exit;
         }
         return $data;
@@ -1315,7 +1316,7 @@ class Template {
             $this->_mtime = filemtime($file);
         }
         else {
-            __error("Template: file does not exist: '$file'");
+            __error("Template: file does not exist: '$file'.");
             exit;
         }
     
@@ -1325,7 +1326,7 @@ class Template {
                 $this->_include_mtimes[$inc_file] = filemtime($inc_file);
             }
             else {
-                __error("Template: file does not exist: '$inc_file'");
+                __error("Template: file does not exist: '$inc_file'.");
                 exit;
             }
         }
