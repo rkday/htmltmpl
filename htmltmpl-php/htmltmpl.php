@@ -23,6 +23,7 @@
     WEBSITE:        http://htmltmpl.sourceforge.net/
     LICENSE:        GNU GPL
     LICENSE-URL:    http://www.gnu.org/licenses/gpl.html
+    CVS:            $Id$
 */
 
 define('_VERSION', 1.01);
