@@ -125,8 +125,8 @@ class Easydoc:
                     method_info = class_info.get_method_info(method)
                     self.method(mclass, method, method_info.get_docstring(),
                                 with_hidden)
-            self.DEB("Finished class: " + mclass)
-            self._classes.append(copy.copy(self._class))
+                self.DEB("Finished class: " + mclass)
+                self._classes.append(copy.copy(self._class))
             self._class.clear()                
         self._tproc.set("Classes", self._classes)
 
