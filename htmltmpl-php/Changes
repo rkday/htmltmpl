@@ -1,6 +1,6 @@
 
     1.12 : 2001/12/12
-        - precompilation with gettext bugfix
+        - precompilation with gettext bugfix (compile_params missing gettext)
 
     1.11 : 2001/11/28
         - this release fixes a major bug in the new gettext suppport

@@ -26,7 +26,7 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.11);
+define('_VERSION', 1.12);
 define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
 
 # All included templates must be placed in a subdirectory of
@@ -107,6 +107,7 @@ class TemplateManager {
     var $_max_include;
     var $_precompile;
     var $_comments;
+    var $_gettext;
     
     function TemplateManager($include=TRUE, $max_include=5, $precompile=TRUE,
                              $comments=TRUE, $gettext=FALSE) {
@@ -980,6 +981,7 @@ class TemplateCompiler {
     var $_include;
     var $_max_include;
     var $_comments;
+    var $_gettext;
     var $_include_files;
     var $_include_level;
     var $_include_path;
@@ -1041,7 +1043,8 @@ class TemplateCompiler {
         $tokens =& $this->parse($data);
         $compile_params = array($this->_include,
                                 $this->_max_include,
-                                $this->_comments);
+                                $this->_comments,
+                                $this->_gettext);
         return new Template(_VERSION, NULL, NULL, $tokens, $compile_params);
     }
     

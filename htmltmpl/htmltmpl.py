@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.21
+    @version        1.22
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.21
+__version__ = 1.22
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.
@@ -210,7 +210,7 @@ class TemplateManager:
                 else:
                     precompiled.debug(self._debug)
                     compile_params = (self._include, self._max_include,
-                                      self._comments)
+                                      self._comments, self._gettext)
                     if precompiled.is_uptodate(compile_params):
                         self.DEB("PRECOMPILED: UPTODATE")
                         compiled = precompiled
@@ -292,7 +292,8 @@ class TemplateManager:
             @hidden
         """
         return TemplateCompiler(self._include, self._max_include,
-                                self._comments, self._debug).compile(file)
+                                self._comments, self._gettext,
+                                self._debug).compile(file)
     
     def is_precompiled(self, file):
         """ Return true if the template is already precompiled on the disk.
@@ -1006,7 +1007,8 @@ class TemplateCompiler:
         self.DEB("COMPILING FROM STRING")
         self._include = 0
         tokens = self.parse(data)
-        compile_params = (self._include, self._max_include, self._comments)
+        compile_params = (self._include, self._max_include, self._comments,
+                          self._gettext)
         return Template(__version__, None, None, tokens, compile_params,
                         self._debug)
 
