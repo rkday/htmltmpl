@@ -7,5 +7,6 @@ include MANIFEST
 include MANIFEST.in
 include Changes
 include test.py
-recursive-include test *.py *.tmpl *.res README
-recursive-include doc *
+recursive-include test
+recursive-include doc 
+global-exclude *.pyc *.tmplc *cvs*

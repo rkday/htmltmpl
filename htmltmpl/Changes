@@ -1,4 +1,9 @@
 
+    1.11 : 2001/08/26
+        - documentation updates & spellchecking
+        - new examples in 'doc'
+        - some pyChecker cleanups
+
     1.10 : 2001/08/25
         
         - !! Please note that you must delete all your old compiled 

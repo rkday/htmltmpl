@@ -154,6 +154,7 @@ class Template:
         if self._debug: print >> sys.stderr, str
 
     def read_file(self, filename, included):
+        data = None
         for path in self._template_path:
             path_join = os.path.join(path, filename)
             if os.path.isfile(path_join):
@@ -168,13 +169,14 @@ class Template:
                                              % (path_join, errno, errstr)
                     else:
                         if included: self._include_files.append(path_join)
-                        return data
+                        break
                 finally:
                     if f: f.close()
         else:                
             # The file was not found in any directory in the template path.
             raise TemplateError, "Template '%s' cannot be found in the "\
                                  "template path." % filename
+        return data
 
     def find(self, filename):
         for path in self._template_path:
@@ -226,7 +228,8 @@ class Template:
                 self.DEB("COMPILED: NOT UPTODATE")
         else:
             self.DEB("COMPILED: NEW")
- 
+
+        # We have to recompile the template.
         tokens = self.compile_template()
         new_compiled = Metadata(VERSION, self._main_file, 
                                 self._include_files, tokens, self._debug)
@@ -248,11 +251,11 @@ class Template:
         """
         if token and (token.startswith("<!-- TMPL_") or \
                       token.startswith("<!-- /TMPL_")):
-            ptoken = "<" + token[5:]
-            self.DEB("MERGING TOKEN: '%s' => '%s'" % (token, ptoken))
-            return ptoken
+            ret_token = "<" + token[5:]
+            self.DEB("MERGING TOKEN: '%s' => '%s'" % (token, ret_token))
         else:
-            return token
+            ret_token = token
+        return ret_token
                 
     def preproc_template(self, template_data):
         """ Remove comments from the template.
@@ -695,7 +698,7 @@ class Template:
                 raise TemplateError, "IO error while loading compiled "\
                                      "template '%s': (%d) %s"\
                                      % (cfilename, errno, errstr)
-            except PicklingError, error:
+            except cPickle.PicklingError, error:
                 raise TemplateError, "Pickling error while loading compiled "\
                                      "template '%s': %s" % (cfilename, error)
             else:
@@ -730,7 +733,7 @@ class Template:
                 raise TemplateError, "IO error while saving compiled "\
                                      "template '%s': (%d) %s"\
                                       % (cfilename, errno, errstr)
-            except PicklingError, error:
+            except cPickle.PicklingError, error:
                 remove_bad = 1
                 raise TemplateError, "Pickling error while saving "\
                                      "compiled template '%s': %s"\
