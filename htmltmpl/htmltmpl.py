@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.18
+    @version        1.20
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.18
+__version__ = 1.20
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.
@@ -43,6 +43,7 @@ import copy
 import cgi          # for HTML escaping of variables
 import urllib       # for URL escaping of variables
 import cPickle      # for template compilation
+import gettext
 
 INCLUDE_DIR = "inc"
 
@@ -54,6 +55,7 @@ PARAMS_NUMBER = 3
 PARAM_NAME = 1
 PARAM_ESCAPE = 2
 PARAM_GLOBAL = 3
+PARAM_GETTEXT_STRING = 1
 
 # Find a way to lock files. Currently implemented only for UNIX and windows.
 LOCKTYPE_FCNTL = 1
@@ -89,12 +91,12 @@ class TemplateManager:
     """
 
     def __init__(self, include=1, max_include=5, precompile=1, comments=1,
-                 debug=0):
+                 gettext=0, debug=0):
         """ Constructor.
         
             @header
             __init__(include=1, max_include=5, precompile=1, comments=1,
-                     debug=0)
+                     gettext=0, debug=0)
             
             @param include Enable or disable included templates.
             This optional parameter can be used to enable or disable
@@ -141,6 +143,8 @@ class TemplateManager:
             Disabling of the comments can improve performance a bit.
             Comments are enabled by default.
             
+            @param gettext Enable or disable gettext support.
+
             @param debug Enable or disable debugging messages.
             This optional parameter is a flag that can be used to enable
             or disable debugging messages which are printed to the standard
@@ -152,6 +156,7 @@ class TemplateManager:
         self._max_include = max_include
         self._precompile = precompile
         self._comments = comments
+        self._gettext = gettext
         self._debug = debug
 
         # Find what module to use to lock files.
@@ -734,7 +739,13 @@ class TemplateProcessor:
                         <br />
                     """ % filename
                     self.DEB("CANNOT INCLUDE WARNING")
- 
+
+                elif token == "<TMPL_GETTEXT":
+                    skip_params = 1
+                    text = tokens[i + PARAM_GETTEXT_STRING]
+                    out += gettext.gettext(text)
+                    self.DEB("GETTEXT: " + text)
+                    
                 else:
                     # Unknown processing directive.
                     raise TemplateError, "Invalid statement %s>." % token
@@ -928,20 +939,24 @@ class TemplateCompiler:
         compiled template to disk in a precompiled form.
     """
 
-    def __init__(self, include=1, max_include=5, comments=1, debug=0):
+    def __init__(self, include=1, max_include=5, comments=1, gettext=0,
+                 debug=0):
         """ Constructor.
 
-        @header __init__(include=1, max_include=5, comments=1, debug=0)
+        @header __init__(include=1, max_include=5, comments=1, gettext=0,
+                         debug=0)
 
         @param include Enable or disable included templates.
-        @param max_include Maximum depth of nested inclusions
+        @param max_include Maximum depth of nested inclusions.
         @param comments Enable or disable template comments.
+        @param gettext Enable or disable gettext support.
         @param debug Enable or disable debugging messages.
         """
         
         self._include = include
         self._max_include = max_include
         self._comments = comments
+        self._gettext = gettext
         self._debug = debug
         
         # This is a list of filenames of all included templates.
@@ -1132,9 +1147,87 @@ class TemplateCompiler:
                 tokens.append(self.find_param("GLOBAL", params))
             else:
                 # "Normal" template data.
-                tokens.append(statement)
+                if self._gettext:
+                    self.DEB("PARSING GETTEXT STRINGS")
+                    self.gettext_tokens(tokens, statement)
+                else:
+                    tokens.append(statement)
         return tokens
-            
+    
+    def gettext_tokens(self, tokens, str):
+        """ Find gettext strings and return appropriate array of
+            processing tokens.
+            @hidden
+        """
+        escaped = 0
+        gt_mode = 0
+        i = 0
+        buf = ""
+        while(1):
+            if i == len(str): break
+            if str[i] == "\\":
+                escaped = 0
+                if str[i+1] == "\\":
+                    buf += "\\"
+                    i += 2
+                    continue
+                elif str[i+1] == "[" or str[i+1] == "]":
+                    escaped = 1
+                else:
+                    buf += "\\"
+            elif str[i] == "[" and str[i+1] == "[":
+                if gt_mode:
+                    if escaped:
+                        escaped = 0
+                        buf += "["
+                    else:
+                        buf += "["
+                else:
+                    if escaped:
+                        escaped = 0
+                        buf += "["
+                    else:
+                        tokens.append(buf)
+                        buf = ""
+                        gt_mode = 1
+                        i += 2
+                        continue
+            elif str[i] == "]" and str[i+1] == "]":
+                if gt_mode:
+                    if escaped:
+                        escaped = 0
+                        buf += "]"
+                    else:
+                        self.add_gettext_token(tokens, buf)
+                        buf = ""
+                        gt_mode = 0
+                        i += 2
+                        continue
+                else:
+                    if escaped:
+                        escaped = 0
+                        buf += "]"
+                    else:
+                        buf += "]"
+            else:
+                escaped = 0
+                buf += str[i]
+            i += 1
+            # end of the loop
+        
+        if buf:
+            tokens.append(buf)
+                
+    def add_gettext_token(self, tokens, str):
+        """ Append a gettext token and gettext string to the tokens array.
+            @hidden
+        """
+        self.DEB("GETTEXT PARSER: TOKEN: " + str)
+        tokens.append("<TMPL_GETTEXT")
+        tokens.append(str)
+        tokens.append(None)
+        tokens.append(None)
+    
     def strip_brackets(self, statement):
         """ Strip HTML brackets (with optional HTML comments) from the
             beggining and from the end of a statement.

@@ -1,4 +1,10 @@
 
+    1.20 : 2001/11/25
+        - New major feature: integrated GETTEXT support which is
+          ideal for easy creation of multilingual web applications.
+          Check the documentation for description of this new feature.
+        - documentation enhancements (clarification of included templates)
+
     1.18 : 2001/10/08
         - new feature: multipart templates.
           They can be created using the new <TMPL_BOUNDARY> directive.
