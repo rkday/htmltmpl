@@ -62,14 +62,12 @@ function _DEB($str) {
         ignore_user_abort(1);
         if (! ($debug_log = fopen($HTMLTMPL_DEBUG, 'a'))) {
             __error('Cannot open debugging log.');
-            exit;
         }
         flock($debug_log, LOCK_EX);
         fputs($debug_log, $str._DEBUG_NEWLINE_SEP);
         flock($debug_log, LOCK_UN);
         if (! fclose($debug_log)) {
             __error('Cannot close debugging log.');
-            exit;
         }
         ignore_user_abort($old_ignore_user_abort);
     }
@@ -88,6 +86,7 @@ function _set_last_item(&$array, $value) {
 function __error($msg) {
     user_error("HTMLTMPL: $msg ... terminating script execution.",
                E_USER_ERROR);
+    die();
 }
 
 ##############################################
@@ -299,7 +298,6 @@ class TemplateManager {
         # Open the file.
         if (! ($precompiled_file = fopen($filename, 'rb'))) {
             __error("Cannot open precompiled template '$filename'.");
-            exit;
         }
         
         # Lock, read and unlock it.
@@ -310,7 +308,6 @@ class TemplateManager {
         # Close it.
         if (! fclose($precompiled_file)) {
             __error("Cannot close precompiled template '$filename'.");
-            exit;
         }
         ignore_user_abort($old_ignore_user_abort);
         $precompiled = unserialize($precompiled_data);
@@ -325,7 +322,6 @@ class TemplateManager {
             if (is_file($filename) && unlink($filename) == FALSE) {
                 __error("Cannot delete invalid precompiled template ".
                            "'$filename'.");
-                exit;
             }
             return NULL;
         }
@@ -345,7 +341,6 @@ class TemplateManager {
         if (! is_writable($template_dir)) {
             __error("Cannot save precompiled templates to '$template_dir':".
                        "write permission denied.");
-            exit;
         }
         
         # Prevent script interruption while we hold a file lock.
@@ -355,7 +350,6 @@ class TemplateManager {
         # Open the file.
         if (! ($precompiled_file = fopen($filename, 'wb'))) {
             __error("Cannot save precompiled template '$filename'.");
-            exit;
         }
         
         # Lock, read and unlock it.
@@ -366,7 +360,6 @@ class TemplateManager {
         # Close it.
         if (! fclose($precompiled_file)) {
             __error("Cannot close precompiled template '$filename'.");
-            exit;
         }
         ignore_user_abort($old_ignore_user_abort);
         _DEB('SAVING PRECOMPILED');
@@ -462,7 +455,6 @@ class TemplateProcessor {
             # template top-level ordinary variable
             if ($var != strtolower($var)) {
                 __error("Invalid variable name '$var'.");
-                exit;
             }
         }
         else {
@@ -472,7 +464,6 @@ class TemplateProcessor {
             if ($first_char != strtoupper($first_char) ||
                 $rest != strtolower($rest)) {
                 __error("Invalid loop name '$var'.");
-                exit;
             }
         }
         $this->_vars[$var] = $value;
@@ -531,7 +522,6 @@ class TemplateProcessor {
 
         if ($part != NULL && ($part == 0 || $part < $this->_current_part)) {
             __error('htmltmpl - process(): invalid part number.');
-            exit;
         }    
         
         # This flag means "jump behind the end of current statement" or
@@ -580,7 +570,6 @@ class TemplateProcessor {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_VAR>.');
-                        exit;
                     }
                     $escape = $tokens[$i + _PARAM_ESCAPE];
                     $global = $tokens[$i + _PARAM_GLOBAL];
@@ -601,7 +590,6 @@ class TemplateProcessor {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_LOOP>.');
-                        exit;
                     }
                     $skip_params = TRUE;
 
@@ -634,7 +622,6 @@ class TemplateProcessor {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_IF>.');
-                        exit;
                     }
                     $global = $tokens[$i + _PARAM_GLOBAL];
                     $skip_params = TRUE;
@@ -653,7 +640,6 @@ class TemplateProcessor {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_UNLESS>.');
-                        exit;
                     }
                     $global = $tokens[$i + _PARAM_GLOBAL];
                     $skip_params = TRUE;
@@ -672,7 +658,6 @@ class TemplateProcessor {
                     $skip_params = TRUE;
                     if (! $loop_name) {
                         __error('Unmatched </TMPL_LOOP>.');
-                        exit;
                     }
                     
                     # If this loop was not disabled, then record the pass.
@@ -702,7 +687,6 @@ class TemplateProcessor {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched </TMPL_IF>.');
-                        exit;
                     }
                     array_pop($output_control);
                     _DEB('IF: END');
@@ -712,7 +696,6 @@ class TemplateProcessor {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched </TMPL_UNLESS>.');
-                        exit;
                     }
                     array_pop($output_control);
                     _DEB('UNLESS: END');
@@ -722,7 +705,6 @@ class TemplateProcessor {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched <TMPL_ELSE>.');
-                        exit;
                     }
                     if (_last_item($output_control) == $DISABLE_OUTPUT) {
                         # Condition was false, activate the ELSE block.
@@ -736,7 +718,6 @@ class TemplateProcessor {
                     }
                     else {
                         __error('BUG: ELSE: INVALID FLAG.');
-                        exit;
                     }                
                 }
 
@@ -773,7 +754,6 @@ class TemplateProcessor {
                 else {
                     # Unknown processing directive.
                     __error("Invalid statement $token>.");
-                    exit;
                 }                                  
             }
             elseif (! in_array($DISABLE_OUTPUT, $output_control)) {
@@ -789,11 +769,9 @@ class TemplateProcessor {
         # Check whether all opening statements were closed.
         if ($loop_name) {
             __error('Missing </TMPL_LOOP>.');
-            exit;
         }
         if ($output_control) {
             __error('Missing </TMPL_IF> or </TMPL_UNLESS>.');
-            exit;
         }
 
         return $out;
@@ -933,7 +911,6 @@ class TemplateProcessor {
                 if (! $every) {
                     __error('Magic variable __EVERY__x: pass number '.
                                'cannot be zero.');
-                    exit;
                 }
                 else {
                     if (($loop_pass + 1) % $every == 0) {
@@ -951,7 +928,6 @@ class TemplateProcessor {
         }
         else {
             __error("Invalid magic variable '$var'.");
-            exit;
         }    
     }
     
@@ -1066,18 +1042,15 @@ class TemplateCompiler {
         # Does the file exist ?
         if (! file_exists($filename)) {
             __error("Template '$filename' does not exist.");
-            exit;
         }
         
         # Read it.
         if (! ($template_file = fopen($filename, 'r'))) {
             __error("Cannot open template '$filename'.");
-            exit;
         }
         $data = fread($template_file, filesize($filename));
         if (! fclose($template_file)) {
             __error("Cannot close template '$filename'.");
-            exit;
         }
         return $data;
     }
@@ -1129,7 +1102,6 @@ class TemplateCompiler {
                 $filename = $tokens[$i + _PARAM_NAME];
                 if (! $filename) {
                     __error('No filename in <TMPL_INCLUDE>.');
-                    exit;
                 }
                 $this->_include_level++;
                 if ($this->_include_level > $this->_max_include) {
@@ -1252,7 +1224,6 @@ class TemplateCompiler {
             list($name, $value) = explode('=', $pair);
             if (! $name || ! $value) {
                 __error('Syntax error in template.');
-                exit;
             }
             if ($name == $param) {
                 if ($value{0} == '"') {
@@ -1317,7 +1288,6 @@ class Template {
         }
         else {
             __error("Template: file does not exist: '$file'.");
-            exit;
         }
     
         # Save modificaton times of all included template files.
@@ -1327,7 +1297,6 @@ class Template {
             }
             else {
                 __error("Template: file does not exist: '$inc_file'.");
-                exit;
             }
         }
         _DEB('NEW TEMPLATE CREATED');
