@@ -14,7 +14,7 @@
     Prague, the Czech Republic
 
     @name           easydoc
-    @version        1.00
+    @version        1.01
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -23,7 +23,7 @@
     @require        htmltmpl ([ http://htmltmpl.sourceforge.net/ ])
 """
 
-__version__ = 1.00
+__version__ = 1.01
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules except the 'htmltmpl' module are part of

@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.15
+    @version        1.16
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.15
+__version__ = 1.16
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.

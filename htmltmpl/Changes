@@ -1,4 +1,7 @@
 
+    1.16 : 2001/09/02
+        - bugfix in easydoc: hidden classes were not hidden
+
     1.15 : 2001/09/01
         - !! This release is a major redesign of the module.
              It's incompatible with code using the old interface.
