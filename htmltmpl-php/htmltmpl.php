@@ -18,7 +18,7 @@
     http://www.gnu.org/ or in file "LICENSE" contained in the
     distribution tarball of this module.
 
-    Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
+    Copyright (c) 2002 Tomas Styblo, tripie@cpan.org
 
     WEBSITE:        http://htmltmpl.sourceforge.net/
     LICENSE:        GNU GPL
@@ -26,8 +26,8 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.14);
-define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
+define('_VERSION', 1.20);
+define('_AUTHOR', 'Tomas Styblo <tripie@cpan.org>');
 
 # All included templates must be placed in a subdirectory of
 # a directory in which the main template is placed. The name of the
@@ -42,7 +42,43 @@ define('_PARAMS_NUMBER', 3);
 define('_PARAM_NAME', 1);
 define('_PARAM_ESCAPE', 2);
 define('_PARAM_GLOBAL', 3);
+
+define('_PARAM_INPUT_OPTION_VALUE', 1);
+define('_PARAM_INPUT_EXTRA', 2);
+
 define('_PARAM_GETTEXT_STRING', 1);
+
+# structure of the bytecode
+define('BIN_SEP', "\000");
+define('BIN_PRETOKEN', "\001");
+
+define('INT_TMPL_LOOP', "\002");
+define('INT_TMPL_ENDLOOP', "\003");
+define('INT_TMPL_IF', "\004");
+define('INT_TMPL_ENDIF', "\005");
+define('INT_TMPL_UNLESS', "\006");
+define('INT_TMPL_ENDUNLESS', "\007");
+define('INT_TMPL_ELSE', "\010");
+define('INT_TMPL_BOUNDARY', "\011");
+define('INT_TMPL_INCLUDE', "\012");
+define('INT_TMPL_GETTEXT', "\013");
+
+define('INT_TMPL_TEXT', "\014");
+define('INT_TMPL_SELECT', "\015");
+define('INT_TMPL_CHECKBOX', "\016");
+define('INT_TMPL_RADIO', "\017");
+define('INT_TMPL_CUSTSELECT', "\020");
+define('INT_TMPL_CUSTCHECKBOX', "\021");
+define('INT_TMPL_CUSTRADIO', "\022");
+
+define('INT_TMPL_ENDCUSTSELECT', "\023");
+define('INT_TMPL_ENDCUSTCHECKBOX', "\024");
+define('INT_TMPL_ENDCUSTRADIO', "\025");
+define('INT_TMPL_OPTION', "\026");
+
+define('INT_TMPL_STATIC', "\027");
+define('INT_TMPL_VAR', "\030");
+
 
 # Platform dependent defaults.
 define('_DEBUG_NEWLINE_SEP', "\n");
@@ -110,9 +146,10 @@ class TemplateManager {
     var $_gettext;
     var $_static;
     var $_watch_files;
-    
+    var $_optimize_spaces;
+   
     function TemplateManager($include=TRUE, $max_include=5, $precompile=TRUE,
-                             $comments=TRUE, $gettext=FALSE) {
+                             $comments=TRUE, $gettext=FALSE, $optimize_spaces=FALSE) {
         # Constructor.
         #
         # param include: Enable or disable included templates.
@@ -166,6 +203,7 @@ class TemplateManager {
         $this->_precompile = $precompile;
         $this->_comments = $comments;
         $this->_gettext = $gettext;
+        $this->_optimize_spaces = $optimize_spaces;
         $this->_static = array();
         $this->_watch_files = array();
         _DEB('INIT DONE');
@@ -320,7 +358,8 @@ class TemplateManager {
         # The method returns a REFERENCE to the template. You must use the
         # reference assignment when calling the method (=&) !        
         $tmplc = new TemplateCompiler($this->_include, $this->_max_include,
-                                      $this->_comments, $this->_gettext);
+                                      $this->_comments, $this->_gettext,
+                                      $this->_optimize_spaces);
         $tmplc->static_data($this->_static);
         $tmplc->watch_files($this->_watch_files);
         return $tmplc->compile($file);
@@ -420,6 +459,43 @@ class TemplateManager {
         }
         ignore_user_abort($old_ignore_user_abort);
         _DEB('SAVING PRECOMPILED');
+
+        $this->save_precompiled_cproc($template);
+    }
+
+    function save_precompiled_cproc(&$template) {
+        $filename = $template->file().'cc';   # "template.tmplcc"
+        $template_dir = dirname(realpath($template->file()));
+        
+        # Check if we have write permission to the template's directory.
+        if (! is_writable($template_dir)) {
+            __error("Cannot save precompiled templates to '$template_dir':".
+                       "write permission denied.");
+        }
+        
+        # Prevent script interruption while we hold a file lock.
+        $old_ignore_user_abort = ignore_user_abort();
+        ignore_user_abort(1);
+
+        # Open the file.
+        if (! ($precompiled_file = fopen($filename, 'wb'))) {
+            __error("Cannot save precompiled template '$filename'.");
+        }
+        
+        # create the cproc bytecode
+        $data = implode(BIN_SEP, $template->_tokens);
+        
+        # Lock, read and unlock it.
+        flock($precompiled_file, LOCK_EX);
+        fwrite($precompiled_file, $data);
+        flock($precompiled_file, LOCK_UN);
+        
+        # Close it.
+        if (! fclose($precompiled_file)) {
+            __error("Cannot close precompiled template '$filename'.");
+        }
+        ignore_user_abort($old_ignore_user_abort);
+        _DEB('SAVING CPROC PRECOMPILED');
     }
 }
 
@@ -440,9 +516,10 @@ class TemplateProcessor {
     var $_vars;
     var $_current_part;
     var $_current_pos;
-    
+    var $_gettext_func;
+ 
     function TemplateProcessor($html_escape=TRUE, $magic_vars=TRUE,
-                               $global_vars=FALSE) {
+                               $global_vars=FALSE, $gettext_func=NULL) {
         # Constructor.
 
         # param html_escape: Enable or disable HTML escaping of variables.
@@ -482,6 +559,9 @@ class TemplateProcessor {
         # Following variables are for multipart templates.
         $this->_current_part = 1;
         $this->_current_pos = 0;
+        
+        # Gettext resolve function
+        $this->_gettext_func = $gettext_func;
     }
     
     function set($var, $value=NULL) {
@@ -514,19 +594,29 @@ class TemplateProcessor {
         # returns: No return value.  param var: Name of template variable or
         # loop.  param value: The value to associate.
 
-        # The correctness of character case is verified only for top-level
-        # variables.
-
         if (is_array($var) && $value == NULL) {
             foreach ($var as $mkey => $mvalue) {
-                $this->real_set($mkey, $mvalue);
+                $this->_vars[$mkey] =& $mvalue;
+                _DEB("VALUE SET: $mkey");
             }
         }
         else {
-            $this->real_set($var, $value);
+            $this->_vars[$var] =& $value;
+            _DEB("VALUE SET: $var");
         }
     }
-    
+
+    function loop() {
+        $args = func_get_args();
+        if (count($args) < 2) {
+            __error("loop: init: not enough parameters (name, varnames ...)");
+            return NULL;
+        }
+        $name = array_shift($args);
+        $loop = new TemplateLoop($this, $name, $args);
+        return $loop;
+    }
+
     function reset($keep_data=FALSE) {
         # Reset the template data.
         #
@@ -598,7 +688,9 @@ class TemplateProcessor {
         $loop_pass = array();   # current pass of a loop (counted from zero)
         $loop_start = array();  # index of loop start in token list
         $loop_total = array();  # total number of passes in a loop
-        
+        $cust_type = array();  # used only by <TMPL_CUST*> tags
+        $cust_name = array();  # used only by <TMPL_CUST*> tags
+
         $tokens =& $template->tokens();
         $len_tokens = count($tokens);
         $out = '';              # buffer for processed output
@@ -619,10 +711,10 @@ class TemplateProcessor {
             }
             
             $token = $tokens[$i];
-            if (substr($token, 0, 6) == '<TMPL_' ||
-                substr($token, 0, 7) == '</TMPL_') {
+            if ($token{0} == BIN_PRETOKEN) {
+                $token = $token{1};
 
-                if ($token == '<TMPL_VAR') {
+                if ($token == INT_TMPL_VAR) {
                     # TMPL_VARs should be first. They are the most common.
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
@@ -643,7 +735,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '<TMPL_LOOP') {
+                elseif ($token == INT_TMPL_LOOP) {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_LOOP>.');
@@ -675,7 +767,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '<TMPL_IF') {
+                elseif ($token == INT_TMPL_IF) {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_IF>.');
@@ -693,7 +785,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '<TMPL_UNLESS') {
+                elseif ($token == INT_TMPL_UNLESS) {
                     $var = $tokens[$i + _PARAM_NAME];
                     if (! $var) {
                         __error('No identifier in <TMPL_UNLESS>.');
@@ -711,7 +803,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '</TMPL_LOOP') {
+                elseif ($token == INT_TMPL_ENDLOOP) {
                     $skip_params = TRUE;
                     if (! $loop_name) {
                         __error('Unmatched </TMPL_LOOP>.');
@@ -740,7 +832,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '</TMPL_IF') {
+                elseif ($token == INT_TMPL_ENDIF) {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched </TMPL_IF>.');
@@ -749,7 +841,7 @@ class TemplateProcessor {
                     _DEB('IF: END');
                 }    
 
-                elseif ($token == '</TMPL_UNLESS') {
+                elseif ($token == INT_TMPL_ENDUNLESS) {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched </TMPL_UNLESS>.');
@@ -758,7 +850,7 @@ class TemplateProcessor {
                     _DEB('UNLESS: END');
                 }
 
-                elseif ($token == '<TMPL_ELSE') {
+                elseif ($token == INT_TMPL_ELSE) {
                     $skip_params = TRUE;
                     if (! $output_control) {
                         __error('Unmatched <TMPL_ELSE>.');
@@ -778,7 +870,7 @@ class TemplateProcessor {
                     }                
                 }
 
-                elseif ($token == '<TMPL_BOUNDARY') {
+                elseif ($token == INT_TMPL_BOUNDARY) {
                     if ($part && $part == $this->_current_part) {
                         _DEB('BOUNDARY ON');
                         $this->_current_part++;
@@ -792,7 +884,7 @@ class TemplateProcessor {
                     }
                 }
 
-                elseif ($token == '<TMPL_INCLUDE') {
+                elseif ($token == INT_TMPL_INCLUDE) {
                     # TMPL_INCLUDE is left in the compiled template only
                     # when it was not replaced by the parser.
                     $skip_params = TRUE;
@@ -808,15 +900,223 @@ class TemplateProcessor {
                     _DEB('CANNOT INCLUDE WARNING');
                 }                
 
-                elseif ($token == '<TMPL_GETTEXT') {
+                elseif ($token == INT_TMPL_GETTEXT) {
                     $skip_params = TRUE;
                     if (! in_array($DISABLE_OUTPUT, $output_control)) {
                         $text = $tokens[$i + _PARAM_GETTEXT_STRING];
-                        $out .= gettext($text);
+                        if ($this->_gettext_func == NULL) {
+                            $out .= gettext($text);
+                        }
+                        else {
+                            $func = $this->_gettext_func;
+                            $out .= $func($text);
+                        }
                         _DEB("GETTEXT: $text");
                     }
                 }
+ 
+                elseif ($token == INT_TMPL_TEXT) {
+                    $name = $tokens[$i + _PARAM_NAME];
+                    $extra = $tokens[$i + _PARAM_INPUT_EXTRA];
+                    if (! $name) {
+                        __error('No identifier in <TMPL_TEXT>.');
+                    }
+                    $skip_params = TRUE;
+
+                    _DEB("TMPL_TEXT: $name");
+                    
+                    if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        $value = $this->find_value($name, $loop_name,
+                               $loop_pass, $loop_total, FALSE);
+                        $out .= '<input type="text" name="'.htmlspecialchars($name).'" '.
+                                'value="'.htmlspecialchars($value)."\" $extra />"."\n";
+                    }
+                }
                 
+                elseif ($token == INT_TMPL_SELECT || 
+                        $token == INT_TMPL_CHECKBOX ||
+                        $token == INT_TMPL_RADIO) {
+                    $name = $tokens[$i + _PARAM_NAME];
+                    $extra = $tokens[$i + _PARAM_INPUT_EXTRA];
+                    if (! $name) {
+                        __error('No identifier in <TMPL_SELECT/CHECKBOX/RADIO>.');
+                    }
+                    $skip_params = TRUE;
+
+                    _DEB("SELECT or CHECKBOX or RADIO: $name");
+                    
+                    if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        # Find total number of passes in this loop.
+                        $passtotal = $this->find_value($name, $loop_name,
+                                                       $loop_pass, $loop_total);
+                        if ($passtotal > 0) {
+                            if ($token == INT_TMPL_SELECT) {
+                                $out .= '<select name="'.htmlspecialchars($name)."\" $extra>\n";
+                            }
+                            else if ($token == INT_TMPL_CHECKBOX) {
+                                $out .= "<!-- checkbox: ".htmlspecialchars($name)." -->\n";
+                            }
+                            else if ($token == INT_TMPL_RADIO) {
+                                $out .= "<!-- radio: ".htmlspecialchars($name)." -->\n";
+                            }
+                            
+                            # Push data for this loop on the stack.
+                            array_push($loop_total, $passtotal);
+                            array_push($loop_start, $i);
+                            array_push($loop_pass, 0);
+                            array_push($loop_name, $name);
+
+                            while (TRUE) {
+                                $value = $this->find_value("value", $loop_name,
+                                                           $loop_pass, $loop_total,
+                                                           FALSE);
+                                $text = $this->find_value("text", $loop_name,
+                                                          $loop_pass, $loop_total,
+                                                          FALSE);
+
+                                # accept both "checked" and "selected"
+                                $selected = $this->find_value("selected", $loop_name,
+                                                          $loop_pass, $loop_total,
+                                                          FALSE);
+
+                                $checked = $this->find_value("checked", $loop_name,
+                                                          $loop_pass, $loop_total,
+                                                          FALSE);
+
+                                if ($selected || $checked) {
+                                    $sel = TRUE;
+                                }
+                                else {
+                                    $sel = FALSE;
+                                }
+
+                                if ($token == INT_TMPL_SELECT) {
+                                    if ($sel) { $sel = "selected"; }
+                                    $out .= '<option value="'.htmlspecialchars($value)."\" $sel>".
+                                            htmlspecialchars($text)."</option>\n";
+                                }
+                                else if ($token == INT_TMPL_CHECKBOX) {
+                                     if ($sel) { $sel = "checked"; }
+                                     $out .= '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
+                                             'value="'.htmlspecialchars($value)."\" $sel $extra />".' '.
+                                            htmlspecialchars($text)."\n";
+                                }
+                                else if ($token == INT_TMPL_RADIO) {
+                                      if ($sel) { $sel = "checked"; }
+                                      $out .= '<input type="radio" name="'.htmlspecialchars($name).'" '.
+                                             'value="'.htmlspecialchars($value)."\" $sel $extra />".' '.
+                                            htmlspecialchars($text)."\n";
+                                }
+
+                                # If this loop was not disabled, then record the pass.
+                                if (_last_item($loop_total) > 0) {
+                                    $loop_pass[count($loop_pass) - 1]++;
+                                }
+                               
+                                if (_last_item($loop_pass) == _last_item($loop_total)) {
+                                    # There are no more passes in this loop. Pop
+                                    # the loop from stack.
+                                    array_pop($loop_pass);
+                                    array_pop($loop_name);
+                                    array_pop($loop_start);
+                                    array_pop($loop_total);
+                                    _DEB('SELECT/CHECKBOX/RADIO: END');
+                                    break;
+                                }
+                            }                     
+                            $out .= "</select>\n";
+                        }
+                    }
+                }
+ 
+                elseif ($token == INT_TMPL_CUSTSELECT || 
+                        $token == INT_TMPL_CUSTCHECKBOX ||
+                        $token == INT_TMPL_CUSTRADIO) {
+                    $name = $tokens[$i + _PARAM_NAME];
+                    $extra = $tokens[$i + _PARAM_INPUT_EXTRA];
+                    if (! $name) {
+                        __error('No identifier in <TMPL_CUSTSELECT/CUSTCHECKBOX/CUSTRADIO>.');
+                    }
+                    $skip_params = TRUE;
+
+                    if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        if ($token == INT_TMPL_CUSTSELECT) {
+                            $out .= '<select name="'.htmlspecialchars($name)."\" $extra>\n";
+                        }
+                        else if ($token == INT_TMPL_CUSTCHECKBOX) {
+                             $out .= '<!-- custcheckbox: '.htmlspecialchars($name)." -->\n";
+                        }
+                        else if ($token == INT_TMPL_CUSTRADIO) {
+                             $out .= '<!-- custradio: '.htmlspecialchars($name)." -->\n";
+                        }
+                    }
+
+                    _DEB("CUSTSELECT or CUSTCHECKBOX or CUSTRADIO: $name");
+
+                    array_push($cust_type, $token);
+                    array_push($cust_name, $name);
+                }
+                
+                elseif ($token == INT_TMPL_OPTION) {
+                    $value = $tokens[$i + _PARAM_INPUT_OPTION_VALUE];
+                    $extra = $tokens[$i + _PARAM_INPUT_EXTRA];
+                    if (strlen($value) == 0) {
+                        __error('No value in <TMPL_CUSTSELECT/CUSTCHECKBOX/CUSTRADIO>.');
+                    }
+                    $skip_params = TRUE;
+                    
+                    if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        $sel = '';
+                        $found_value = $this->find_value(_last_item($cust_name), $loop_name,
+                                                         $loop_pass, $loop_total,
+                                                         $global);
+                        $found_values = explode(",", $found_value);
+                        foreach ($found_values as $fv) {
+                            if ($value == $fv) {
+                                $sel = TRUE;
+                            }
+                        }
+                        
+                        $ctype = _last_item($cust_type);
+                        switch ($ctype) {
+                            case INT_TMPL_CUSTSELECT:
+                                if ($sel) { $sel = "selected"; }
+                                $out .= '<option value="'.htmlspecialchars($value)."\" $sel $extra>";
+                                break;
+                            case INT_TMPL_CUSTCHECKBOX:
+                                if ($sel) { $sel = "checked"; }
+                                $out .= '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
+                                        'value="'.htmlspecialchars($value)."\" $sel $extra />";
+                                break;
+                            case INT_TMPL_CUSTRADIO:
+                                if ($sel) { $sel = "checked"; }
+                                $out .= '<input type="radio" name="'.htmlspecialchars($name).'" '.
+                                        'value="'.htmlspecialchars($value)."\" $sel $extra />";
+                                break;
+                        }
+                        _DEB("CUST OPTION: $value");
+                    }
+                }
+                
+                elseif ($token == INT_TMPL_ENDCUSTSELECT || 
+                        $token == INT_TMPL_ENDCUSTCHECKBOX ||
+                        $token == INT_TMPL_ENDCUSTRADIO) {
+                    $skip_params = TRUE;
+                    if (! $cust_name) {
+                        __error('Unmatched </TMPL_CUST>.');
+                    }
+
+                    if (_last_item($cust_type) == INT_TMPL_CUSTSELECT) {
+                        if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                            $out .= "</select>\n";
+                        }
+                    }
+                    
+                    array_pop($cust_type);
+                    array_pop($cust_name);
+                    _DEB('CUST: END');
+                }
+
                 else {
                     # Unknown processing directive.
                     __error("Invalid statement $token>.");
@@ -846,26 +1146,6 @@ class TemplateProcessor {
     ##############################################
     #              PRIVATE METHODS               #
     ##############################################
-    
-    function real_set($var, $value) {
-        if (! is_array($value)) {
-            # template top-level ordinary variable
-            if ($var != strtolower($var)) {
-                __error("Invalid variable name '$var'.");
-            }
-        }
-        else {
-            # template top-level loop
-            $first_char = $var{0};
-            $rest = substr($var, 1);
-            if ($first_char != strtoupper($first_char) ||
-                $rest != strtolower($rest)) {
-                __error("Invalid loop name '$var'.");
-            }
-        }
-        $this->_vars[$var] = $value;
-        _DEB("VALUE SET: $var");
-    }
     
     function find_value($var, &$loop_name, &$loop_pass, &$loop_total,
                         $global_override=NULL) {
@@ -928,6 +1208,9 @@ class TemplateProcessor {
         }
         else {
             # No value found.
+            /*
+            # !!! this no longer works because we do not enforce first letter
+            # uppercase in loops
             if ($var{0} == strtoupper($var{0})) {
                 # This is a loop name.
                 # Return zero, because the user wants to know number
@@ -937,6 +1220,8 @@ class TemplateProcessor {
             else {
                 return '';
             }
+            */
+            return '';
         }
     }
     
@@ -1064,9 +1349,10 @@ class TemplateCompiler {
     var $_include_path;
     var $_static;
     var $_watch_files;
+    var $_optimize_spaces;
     
     function TemplateCompiler($include=TRUE, $max_include=5, $comments=TRUE,
-                              $gettext=FALSE) {
+                              $gettext=FALSE, $optimize_spaces=FALSE) {
         # Constructor.
         #
         # param include: Enable or disable included templates.
@@ -1077,6 +1363,7 @@ class TemplateCompiler {
         $this->_max_include = $max_include;
         $this->_comments = $comments;
         $this->_gettext = $gettext;
+        $this->_optimize_spaces = $optimize_spaces;
 
         # This is a list of filenames of all included templates.
         # It's modified by the include_templates() method.
@@ -1241,7 +1528,7 @@ class TemplateCompiler {
             }
 
             $token = $tokens[$i];
-            if ($token == '<TMPL_INCLUDE') {
+            if ($token == BIN_PRETOKEN.INT_TMPL_INCLUDE) {
                 $filename = $tokens[$i + _PARAM_NAME];
                 if (! $filename) {
                     __error('No filename in <TMPL_INCLUDE>.');
@@ -1291,8 +1578,8 @@ class TemplateCompiler {
             (?:^[ \t]+)?               # eat spaces, tabs (opt.)
             (<
              (?:!--[ ])?               # comment start + space (opt.)
-             /?TMPL_[A-Z]+             # closing slash "/" (opt.) + statement
-             [ a-zA-Z0-9"/.=:_\\\\-]*  # this spans also comments ending (--)
+             /?[Tt][Mm][Pp][Ll]_[a-zA-Z]+    # closing slash "/" (opt.) + statement
+             [^>]*  # this spans also comments ending (--)
              >)
             (?:\r?\n)?                 # eat trailing newline (opt.)
         ';
@@ -1304,13 +1591,18 @@ class TemplateCompiler {
             if (substr($statement, 0, 6) == '<TMPL_' ||
                 substr($statement, 0, 7) == '</TMPL_' ||
                 substr($statement, 0, 10) == '<!-- TMPL_' ||
-                substr($statement, 0, 11) == '<!-- /TMPL_') {
+                substr($statement, 0, 11) == '<!-- /TMPL_' ||
+                substr($statement, 0, 6) == '<tmpl_' ||
+                substr($statement, 0, 7) == '</tmpl_' ||
+                substr($statement, 0, 10) == '<!-- tmpl_' ||
+                substr($statement, 0, 11) == '<!-- /tmpl_') {
                 # Processing statement.
                 $statement = $this->strip_brackets($statement);
                 $params = preg_split("|\s+|", $statement, $NO_LIMIT,
                                      PREG_SPLIT_NO_EMPTY);
-                $directive = $this->find_directive($params);
-                if ($directive == '<TMPL_STATIC') {
+                $directive = BIN_PRETOKEN;
+                $directive .= $this->find_directive($params);
+                if ($directive == BIN_PRETOKEN.INT_TMPL_STATIC) {
                     $stvar = $this->find_name($params);
                     $escape = $this->find_param('ESCAPE', $params);
                     if (isset($this->_static[$stvar])) {
@@ -1321,7 +1613,24 @@ class TemplateCompiler {
                         __error("Cannot find STATIC data for '$st'.");
                     }
                 }
+                else if ($directive == BIN_PRETOKEN.INT_TMPL_SELECT || 
+                         $directive == BIN_PRETOKEN.INT_TMPL_CUSTSELECT ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_RADIO ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_CUSTRADIO ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_CHECKBOX ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_CUSTCHECKBOX ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_ENDCUSTRADIO ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_ENDCHECKBOX ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_ENDCUSTCHECKBOX ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_OPTION ||
+                         $directive == BIN_PRETOKEN.INT_TMPL_TEXT) {
+                    array_push($tokens, $directive);
+                    array_push($tokens, $this->find_name($params));
+                    array_push($tokens, $this->find_extra($params));
+                    array_push($tokens, NULL);
+                }
                 else {
+                    # normal template command
                     array_push($tokens, $directive);
                     array_push($tokens, $this->find_name($params));
                     array_push($tokens, $this->find_param('ESCAPE', $params));
@@ -1330,12 +1639,27 @@ class TemplateCompiler {
             }
             else {
                 # "Normal" template data.
-                if ($this->_gettext) {
-                    _DEB("PARSING GETTEXT STRINGS");
-                    $this->gettext_tokens($tokens, $statement);
+                # here is also the gettext processing
+                if ($this->_optimize_spaces) {
+                    $str = '';
+                    $lines = explode("\n", $statement);
+                    $lines_cnt = count($lines);
+                    for ($l = 0; $l < $lines_cnt; $l++) {
+                        $str .= preg_replace('/^\s+/', ' ', $lines[$l]);
+                        if ($l < $lines_cnt - 1) {
+                            $str .= "\n";
+                        }
+                    }
                 }
                 else {
-                    array_push($tokens, $statement);
+                    $str = $statement;
+                }
+                if ($this->_gettext) {
+                    _DEB("PARSING GETTEXT STRINGS");
+                    $this->gettext_tokens($tokens, $str);
+                }
+                else {
+                    array_push($tokens, $str);
                 }
             }
         }
@@ -1431,7 +1755,7 @@ class TemplateCompiler {
 
     function add_gettext_token(&$tokens, $str) {
         _DEB("GETTEXT PARSER: TOKEN: $str");
-        array_push($tokens, '<TMPL_GETTEXT');
+        array_push($tokens, BIN_PRETOKEN.INT_TMPL_GETTEXT);
         array_push($tokens, $str);
         array_push($tokens, NULL);
         array_push($tokens, NULL);
@@ -1441,7 +1765,9 @@ class TemplateCompiler {
         # Strip HTML brackets (with optional HTML comments) from the
         # beggining and from the end of a statement.       
         if (substr($statement, 0, 10) == '<!-- TMPL_' ||                
-            substr($statement, 0, 11) == '<!-- /TMPL_') {
+            substr($statement, 0, 11) == '<!-- /TMPL_' ||
+            substr($statement, 0, 10) == '<!-- tmpl_' ||                
+            substr($statement, 0, 11) == '<!-- /tmpl_') {
             return substr($statement, 5, strlen($statement) - (5 + 4));
         }
         else {
@@ -1454,7 +1780,61 @@ class TemplateCompiler {
         $directive = $params[0];
         array_shift($params);
         _DEB("TOKENIZER: DIRECTIVE: '$directive'");
-        return '<'.$directive;
+        switch ($directive) {
+            case 'TMPL_VAR':        return INT_TMPL_VAR;
+            case 'TMPL_LOOP':       return INT_TMPL_LOOP;
+            case '/TMPL_LOOP':      return INT_TMPL_ENDLOOP;
+            case 'TMPL_IF':         return INT_TMPL_IF;
+            case '/TMPL_IF':        return INT_TMPL_ENDIF;
+            case 'TMPL_UNLESS':     return INT_TMPL_UNLESS;
+            case '/TMPL_UNLESS':    return INT_TMPL_ENDUNLESS;
+            case 'TMPL_ELSE':       return INT_TMPL_ELSE;
+            case 'TMPL_BOUNDARY':   return INT_TMPL_BOUNDARY;
+            case 'TMPL_INCLUDE':    return INT_TMPL_INCLUDE;
+            case 'TMPL_GETTEXT':    return INT_TMPL_GETTEXT;
+            case 'TMPL_UNLESS':     return INT_TMPL_UNLESS;
+
+            case 'TMPL_TEXT':           return INT_TMPL_TEXT;
+            case 'TMPL_SELECT':         return INT_TMPL_SELECT;
+            case 'TMPL_CHECKBOX':       return INT_TMPL_CHECKBOX;
+            case 'TMPL_RADIO':          return INT_TMPL_RADIO;
+            case 'TMPL_CUSTSELECT':     return INT_TMPL_CUSTSELECT;
+            case '/TMPL_CUSTSELECT':    return INT_TMPL_ENDCUSTSELECT;
+            case 'TMPL_CUSTCHECKBOX':   return INT_TMPL_CUSTCHECKBOX;
+            case '/TMPL_CUSTCHECKBOX':  return INT_TMPL_ENDCUSTCHECKBOX;
+            case 'TMPL_CUSTRADIO':      return INT_TMPL_CUSTRADIO;
+            case '/TMPL_CUSTRADIO':     return INT_TMPL_ENDCUSTRADIO;
+            case 'TMPL_OPTION':         return INT_TMPL_OPTION;
+            
+            case 'TMPL_STATIC':         return INT_TMPL_STATIC;
+
+            case 'tmpl_var':        return INT_TMPL_VAR;
+            case 'tmpl_loop':       return INT_TMPL_LOOP;
+            case '/tmpl_loop':      return INT_TMPL_ENDLOOP;
+            case 'tmpl_if':         return INT_TMPL_IF;
+            case '/tmpl_if':        return INT_TMPL_ENDIF;
+            case 'tmpl_unless':     return INT_TMPL_UNLESS;
+            case '/tmpl_unless':    return INT_TMPL_ENDUNLESS;
+            case 'tmpl_else':       return INT_TMPL_ELSE;
+            case 'tmpl_boundary':   return INT_TMPL_BOUNDARY;
+            case 'tmpl_include':    return INT_TMPL_INCLUDE;
+            case 'tmpl_gettext':    return INT_TMPL_GETTEXT;
+            case 'tmpl_unless':     return INT_TMPL_UNLESS;
+
+            case 'tmpl_text':           return INT_TMPL_TEXT;
+            case 'tmpl_select':         return INT_TMPL_SELECT;
+            case 'tmpl_checkbox':       return INT_TMPL_CHECKBOX;
+            case 'tmpl_radio':          return INT_TMPL_RADIO;
+            case 'tmpl_custselect':     return INT_TMPL_CUSTSELECT;
+            case '/tmpl_custselect':    return INT_TMPL_ENDCUSTSELECT;
+            case 'tmpl_custcheckbox':   return INT_TMPL_CUSTCHECKBOX;
+            case '/tmpl_custcheckbox':  return INT_TMPL_ENDCUSTCHECKBOX;
+            case 'tmpl_custradio':      return INT_TMPL_CUSTRADIO;
+            case '/tmpl_custradio':     return INT_TMPL_ENDCUSTRADIO;
+            case 'tmpl_option':         return INT_TMPL_OPTION;
+
+            case 'tmpl_static':         return INT_TMPL_STATIC;
+        }
     }
     
     function find_name(&$params) {
@@ -1496,6 +1876,20 @@ class TemplateCompiler {
             }
         }
         _DEB("TOKENIZER: PARAM: '$param' => NOT DEFINED");
+    }
+
+    function find_extra(&$params) {
+        $ret = array();
+        $ex = 0;
+        foreach ($params as $p) {
+            if ($ex) {
+                array_push($ret, $p);
+            }
+            else if ($p == '|') {
+                $ex = 1;
+            }
+        }
+        return implode(' ', $ret);
     }
 }
 
@@ -1621,6 +2015,75 @@ class Template {
     function file() {
         # Get filename of the main file of this template.
         return $this->_file;    
+    }
+}
+
+
+##############################################
+#           CLASS: TemplateLoop              #
+##############################################
+
+class TemplateLoop {
+    var $_tp;   # template processor reference
+    var $_name;
+    var $_varnames;
+    var $_data;
+    var $_lastvar;
+   
+    function TemplateLoop(&$tp, &$name, &$varnames) {
+        $this->_tp =& $tp;
+        $this->_name =& $name;
+        $this->_varnames =& $varnames;
+        $this->_data = array();
+        $this->_nextvar = 0;
+    }
+
+    function push() {
+        $args = func_get_args();
+        $tmp = array();
+
+        if (count($args) > count($this->_varnames)) {
+            __error("TemplateLoop: push: too many parameters.");
+            return FALSE;
+        }
+       
+        $this->_nextvar = 0;
+        for ($i = 0; $i < count($args); $i++) {
+            if (is_object($args[$i])) {
+                # nested loop
+                $tmp[$this->_varnames[$this->_nextvar]] =& $args[$i]->_data;
+            }
+            else {
+                $tmp[$this->_varnames[$this->_nextvar]] =& $args[$i];
+            }
+            $this->_nextvar++;
+        }
+        array_push($this->_data, $tmp);
+    }
+
+    function add() {
+        $args = func_get_args();
+        $cur =& $this->_data[count($this->_data) - 1];   # last item
+        
+       if (count($args) > count($this->_varnames) - $this->_nextvar) {
+            __error("TemplateLoop: add: too many parameters");
+            return FALSE;
+       }
+
+        for ($i = 0; $i < count($args); $i++) {
+            if (is_object($args[$i])) {
+                # nested loop
+                $cur[$this->_varnames[$this->_nextvar]] =& $args[$i]->_data;
+            }
+            else {
+                $cur[$this->_varnames[$this->_nextvar]] =& $args[$i];
+            }
+            $this->_nextvar++;
+        }
+    }
+
+    function commit() {
+        $this->_tp->set($this->_name, $this->_data);
     }
 }
 

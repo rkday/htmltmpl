@@ -1,0 +1,16 @@
+<html>
+    <head>
+        <title><TMPL_VAR title></title>
+    </head>    
+    <body>
+        <h1><TMPL_VAR greeting></h1>   ### Comment should be removed.
+
+        <h1>Total boys: <TMPL_VAR boys></h1>
+       
+        <TMPL_CUSTSELECT user | size="1">
+            <TMPL_OPTION tomas> Tomas Styblo
+            <TMPL_OPTION pavel> Pavel Novak
+        </TMPL_CUSTSELECT>
+        
+    </body>
+</html>

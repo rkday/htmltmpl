@@ -1,4 +1,81 @@
 
+    
+    1.20 : 2002/11/01
+        
+        - NEW: HTML <form> control directives:
+
+                <TMPL_TEXT>
+                <TMPL_SELECT>
+                <TMPL_RADIO>
+                <TMPL_CHECKBOX>
+                <TMPL_CUSTSELECT>
+                <TMPL_CUSTRADIO>
+                <TMPL_CUSTCHECKBOX>
+                <TMPL_OPTION>
+
+            They make easier and automate some very common form related
+            tasks, but still do not enforce any cumbersome huge framework
+            on the developer.
+              
+
+        - NEW: New better interface for association of values with loops.
+               Now you can code like this:
+
+                $tp = new TemplateProcessor();
+
+                $users = $tp->loop("Users", "name", "age", "Friends");
+                while (list($name, $age) = something()) {
+                    $friends = $tp->loop("Friends", "name");
+                    $friends->push(get_friend());
+                    $users->push($name, $age, $friends);
+                }
+                $users->commit();
+                
+                No more you need to create all those impractical temporary
+                arrays. This is also more memory efficient.
+
+
+        - NEW: Optimization of redundant spaces. The template engine now can
+               remove redundant spaces from the beginnings of lines. Using this
+               technique the templates can be written in readable manner
+               without any inconveniencies for users on slow network
+               connections.  Removal of redundant spaces usually results in
+               30-50% decrease in size of the page. This feature may be
+               activated by using the new 'optimize_spaces' parameter of the
+               TemplateManager constructor.  One must take care to not use this
+               feature on templates which make use of the <pre> HTML construct.
+
+        
+        - The gettext (localization) support now supports hooks, which can
+          be used to utilize something other than gettext() to fetch the
+          translated strings. A new parameter was added to the constructor of
+          TemplateProcessor to accomplish this.
+
+        - Character case of names of variables is not limited anymore.
+          A lot of people asked for this particular change.
+          You can name your variables and loops any way you like.
+
+        - Template directives now can be written in lowercase.
+          Again, a lot of people asked for this.
+          For example, you can write: <tmpl_var name>
+
+          Mixed case will never be supported though:
+           
+                for example <Tmpl_Var name> is incorrect
+
+        - more liberal rules regarding which characters can be in name
+          of a variable
+
+        - optimization in normal (*.tmplc files) compiled templates:
+            
+            The processing tokens are no longer stored as strings
+            in the bytecode. Each token now takes only one byte.
+
+        - more data is now internally passed by references
+
+        - improved and expanded test suite
+        
+
     1.14 : 2002/07/01
         - WAP support => 
           the ESCAPE option of TMPL_VAR statements can now be set to "WAP". 

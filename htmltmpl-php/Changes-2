@@ -1,0 +1,22 @@
+
+    1.95 (2.0 beta): 2002/12/01
+          
+        This is a beta release of htmltmpl 2. 
+        The code still needs more testing.
+
+
+        - NEW: htmltmpl.so Template Processor loadable PHP module
+               written in C, which provides big speed improvements.
+               
+               It uses a new special bytecode format optimized for
+               maximum performance (*.tmplcc files).
+
+               It works only on UNIX, because it caches the bytecode
+               in IPC shared memory. Therefore it does not need to reread
+               the .tmplcc files on every request.
+
+               On your production servers you don't need to include()
+               the htmltmpl.php library at all, which results in another
+               big speed improvement.
+
+
