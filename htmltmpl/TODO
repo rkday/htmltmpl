@@ -1,0 +1,8 @@
+
+    - Template cache in IPC shared memory which could be shared
+      by CGI processes to store compiled templates would be nice.
+      The pyipc module could be used here.
+      It's probably not worth the effort, though. It also wouldn't work
+      on any platform except UNIX.
+      
+    

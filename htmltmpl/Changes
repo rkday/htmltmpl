@@ -1,0 +1,33 @@
+
+    1.10 : 2001/08/25
+        
+        - !! Please note that you must delete all your old compiled 
+             templates (.tmplc files) before you upgrade to this version.
+             This version introduces a new format of .tmplc files which is
+             not compatible with the old one. !!
+
+        - !! Exceptions TmplEx and FatalEx were removed. New exception
+             TemplateError replaces them both. !!
+        
+        - FIXED: self._include_files list was not reset when the template
+                 has changed on the disk and was recompiled
+        - FIXED: invocation of os.stat() on an included template which
+                 may be no longer accessible
+        - new optimization: see merge_statements()
+        - unrecognized TMPL_* statements are now detected and TemplateError
+          is raised if one is found (it's more compatible with HTML::Template)
+        - unrecognized magic variables are now detected and TemplateError is
+          raised when one is found
+        - better exception handling
+        - OO design polishing => moved template metadata to a new separate 
+          Metadata class
+        - the new .tmplc format is much more extensible
+        - some code was replaced with library functions from os.path
+        - some variables and methods now have more descriptive names
+        - documentation enhancements
+        - added this Changes file
+        - general code polishing
+
+    1.00 : 2001/08/15
+        - first release
+        - submitted to the Vaults of Parnassus

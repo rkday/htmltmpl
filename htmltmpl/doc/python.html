@@ -1,0 +1,386 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+  <head>
+    <title>htmltmpl templating engine</title>
+    <meta name="author" content="Tomas Styblo (tripie@cpan.org)"></meta>
+    <link rel="StyleSheet" type="text/css" href="main.css"></link>
+  </head>
+  <body>
+
+    <table width="100%" border="2" cellspacing="4" cellpadding="8">
+      <tr>
+        <td align="center">
+          <span class="title">
+            <strong>
+              htmltmpl: templating engine for separation of code and HTML
+            </strong>
+          </span>
+        </td>
+      </tr>
+    </table>
+    
+    <p></p>
+    
+    <table border="0" cellspacing="0" cellpadding="16">
+      <tr>
+
+
+        <!-- menu on the left -->
+
+
+        <td valign="top">
+          <ul>
+            <li><p><a href="http://htmltmpl.sourceforge.net/">HOMEPAGE</a></p></li>
+            <li><p><a href="index.html">OVERVIEW</a></p></li>
+            <li><p><a href="lang.html">THE LANGUAGE</a></p></li>
+            <li><p><a href="python.html">PYTHON VERSION</a></p></li>
+            <li><p><a href="index.html">JAVA VERSION</a></p></li>
+            <li><p><a href="http://lists.sourceforge.net/lists/listinfo/htmltmpl-support">MAILING LIST</a></p></li>
+            <li><p><a href="http://sourceforge.net/cvs/?group_id=34229">PUBLIC CVS</a></p></li>
+            <li><p><a href="http://sam.tregar.com/html_template.html">HTML::TEMPLATE</a></p></li>
+            <li><p><a href="http://sourceforge.net">
+                  <img src="http://sourceforge.net/sflogo.php?group_id=34229"
+                       width="88" height="31" class="noborder"
+                       alt="SourceForge Logo"></img></a></p></li>
+          </ul>
+        </td>
+        
+
+        <!-- the text right to the menu -->
+
+   
+        <td valign="top">
+          
+          <ul>
+            <li><a href="#constructor">The constructor</a></li>
+            <li><a href="#methods">Methods</a></li>
+            <li><a href="#exceptions">Exceptions</a></li>
+            <li><a href="#example">Example</a></li>
+          </ul>
+          
+          <hr></hr>    
+          <h2><a name="constructor"></a>The constructor</h2>
+          
+          <h3>Parameters:</h3>
+          
+          <h4>template</h4>
+          <p>
+            The first mandatory parameter 'template' is a filename of
+            the template. The module looks for this file in
+            the directories specified by the 'template_path' parameter.
+            The 'template_path' parameter must be specified, because
+            the module DOES NOT look for the template file in current
+            directory.
+          </p>
+          
+          <h4>template_path</h4>
+          <p>
+            The second mandatory parameter 'template_path' is a list of
+            directories in which the module looks for all 
+            template files. The main template and all included templates
+            must be located in one of these directories.
+          </p>
+          
+          <h4>html_escape</h4>
+          <p>
+            Optional parameter 'html_escape' is a flag that can
+            be used to enable or disable automatic HTML escaping of variables.
+            All variables are by default automatically HTML escaped. 
+            Escaping escapes HTML brackets, ampersands and double quotes.
+          </p>
+          
+          <h4>global_vars</h4>
+          <p>
+            Optional parameter 'global_vars' is a flag that can
+            be used to specify whether variables which cannot be found in
+            the current scope should be looked up in outer scopes.
+            Global vars are disabled by default.
+          </p>
+          
+          <h4>include</h4>
+          <p>
+            Optional parameter 'include' can be used to enable or disable
+            TMPL_INCLUDE inclusion of templates. Disabling of inclusion can
+            improve performance a little. Inclusion is enabled by default.
+          </p>
+          
+          <h4>strict_case</h4>
+          <p>
+            Optional parameter 'strict_case' can be used to enable or 
+            disable strict verification of case of letters in names of 
+            template variables and loops. See section 'Template syntax overview' 
+            for description of these rules. Strict case verification is 
+            enabled by default.
+          </p>
+          
+          <p>
+            You should not disable strict_case. The possibility is provided
+            only for compatibility with existing templates for HTML::Template.
+          </p>
+          
+          <p>
+            Loop names should not be used in TMPL_VAR statements if strict_case
+            is disabled.
+          </p>
+          
+          <h4>max_include</h4>
+          <p>
+            Optional parameter 'max_include' can be used to specify
+            maximum depth of TMPL_INCLUDEs. Max_include defaults
+            to 5. This setting prevents infinite recursive inclusions.
+          </p>
+          
+          <h4>compile</h4>
+          <p>
+            Optional parameter 'compile' can be used to enable or disable creation
+            and usage of compiled templates. A compiled template is saved to the
+            same directory in which the template is located. You need write
+            permissions to that directory. 
+          </p>
+          
+          <p>    
+            Compilation provides significant performance boost because
+            it's not neccessary to parse the templates over and over again.
+            The boost is especially noticable during processing of templates
+            that include other templates. Comparison of modification times
+            of the main template and all included templates is used to
+            ensure that the compiled templates are uptodate. Templates are also
+            recompiled if htmltmpl module is updated.
+          </p>
+    
+          <p>
+            TemplateError is raised when the compiled template cannot be saved.
+            Compilation is enabled by default.
+          </p>
+          
+          <h4>cache</h4>
+          <p>
+            Optional parameter 'cache' can be used to enable or disable
+            caching of compiled templates in memory. Caching is effective
+            only when the same instance of htmltmpl is used to process
+            the template more than once, using its method reset().
+            Therefore, caching brings no benefit in classic CGI environment,
+            but under mod_python or mod_snake it can provide a substantial
+            performance boost. Caching is disabled by default.
+          </p>
+    
+          <h4>blind_cache</h4>
+          <p>
+            Optional parameter 'blind_cache' can be used to enable or
+            disable blind caching. When blind caching is enabled, then
+            templates cached in memory are used without checking whether
+            they were not changed on the disk. This can save some stat()
+            system calls and increase performance a bit. Blind caching is
+            disabled by default.
+          </p>
+          
+          <h4>comments</h4>
+          <p>
+            Optional parameter 'comments' can be used to enable or disable
+            special template comments "### ". Disabling of comments can improve
+            performance a little. Comments are enabled by default.
+          </p>
+          
+          <h4>magic_vars</h4>
+          <p>
+            Optional parameter 'magic_vars' can be used to enable or disable
+            "magic" context variables, that are automatically defined inside
+            loops by the module. Magic variables are enabled by default.
+          </p>
+          
+          <h4>debug</h4>
+          <p>
+            Optional parameter 'debug' is a flag that can be used
+            to turn on debugging messages which are printed to stderr.
+            Debugging is disabled by default. The debugging setting is static.
+            If you change it in constructor of a new instance, then the change
+            applies also to all existing and new instances.
+          </p>
+    
+
+          <hr></hr>
+          <h2><a name="methods"></a>Methods</h2>
+          
+          <h3>__setitem__(variable_name, variable_value)</h3>
+          <p>
+            This method is used to assing values to template identifiers.
+            It represents overloaded subscription "[]" (see the example below).
+            Calling this method is equivalent to:
+          </p>
+
+          <pre>
+            tmpl[variable_name] = variable_value
+          </pre>
+          
+          <p>
+            Template identifier can represent either a string or a loop.
+            To assing a value to a string identifier pass a scalar
+            as the 'variable_value' parameter.
+            To assign a value to a loop identifier pass a list of mappings as the
+            'variable_value' parameter. The engine iterates over this list and assigns
+            values from the mappings to variables in the template if a key in the mapping
+            corresponds to a name of a variable in the corresponding loop block.
+          </p>
+          
+          <h3>output()</h3>
+          <p>
+            This method returns the processed template.
+          </p>
+          
+          <h3>reset()</h3>
+          <p>
+            This method resets all data set by the __setitem__() method.
+            This method must be called after a call to output(), when you
+            want to reuse the instance for another processing of the template
+            with different data. The template can optionally be cached if you reuse
+            the instance (see the 'cache' and 'blind_cache' parameters of 
+            the constructor).
+          </p>
+          
+          <h3>Example:</h3>
+          
+          <pre>
+<span class="keyword">from</span> htmltmpl <span class="keyword">import</span> Template
+        
+<span class="comment"># Create an instance of htmltmpl.
+</span>tmpl = Template(template = &quot;<span class="string">foo.tmpl</span>&quot;,
+                template_path = [&quot;<span class="string">/my/templates</span>&quot;])
+                
+<span class="comment"># Assign a string to template variable named &quot;title&quot;.
+</span>tmpl[&quot;<span class="string">title</span>&quot;] = &quot;<span class="string">My homepage</span>&quot;
+        
+<span class="comment"># Assign a loop that consists of two passes to template loop
+# named &quot;Customers&quot;. This loop is executed twice, 
+# once for each customer.
+</span>tmpl[&quot;<span class="string">Customers</span>&quot;] = [
+    { &quot;<span class="string">name</span>&quot; : &quot;<span class="string">Joe Sixpack</span>&quot;, &quot;<span class="string">city</span>&quot; : &quot;<span class="string">Los Angeles</span>&quot; },
+    { &quot;<span class="string">name</span>&quot; : &quot;<span class="string">Paul Newman</span>&quot;, &quot;<span class="string">city</span>&quot; : &quot;<span class="string">New York</span>&quot; }
+]
+        
+<span class="comment"># Process the template and print the result.
+</span><span class="keyword">print</span> tmpl.output()
+          </pre>
+          
+          
+          <hr></hr>
+          <h2><a name="exceptions"></a>Exceptions</h2>
+          
+          <h3>TemplateError</h3>
+          <p>
+            This exception is raised when an error occurs.
+            Its argument is a description of the error. It's derived from
+            Exception. Errors are either runtime errors (template file not found,
+            I/O error...) or template syntax errors. All these errors are fatal. 
+            The instance is no longer usable when the exception is raised.
+            All IOError exceptions that can be raised on I/O errors are handled
+            inside the module and converted to appropriate TemplateError exceptions.
+          </p>
+          
+          <p>
+            The exception can be raised by any method and by the constructor.
+          </p>
+          
+          <hr></hr>
+          <h2><a name="example"></a>Example</h2>
+          
+          <h3>template.tmpl</h3>
+          <pre>
+    &lt;html&gt;
+        &lt;head&gt;
+            &lt;title&gt;<span class="red">&lt;TMPL_VAR title&gt;</span>&lt;/title&gt;
+        &lt;/head&gt;
+        &lt;body&gt;
+            &lt;h1&gt;Customers:&lt;/h1&gt;
+            &lt;p&gt;
+                Total: <span class="red">&lt;TMPL_VAR Customers&gt;</span>
+            &lt;/p&gt;
+
+            <span class="red">### this comment will be removed</span>
+
+            &lt;table&gt;
+                <span class="red">&lt;TMPL_LOOP Customers&gt;</span>
+                    &lt;tr&gt;
+                        <span class="red">&lt;TMPL_IF new&gt;</span>
+                            &lt;td&gt;new customer&lt;/td&gt; 
+                        <span class="red">&lt;TMPL_ELSE&gt;</span>
+                            &lt;td&gt;old customer&lt;/td&gt;
+                        <span class="red">&lt;/TMPL_IF&gt;</span>
+                        &lt;td&gt;<span class="red">&lt;TMPL_VAR __PASS__&gt;</span>&lt;/td&gt;
+                        &lt;td&gt;<span class="red">&lt;TMPL_VAR name&gt;</span>&lt;/td&gt;
+                        &lt;td&gt;<span class="red">&lt;TMPL_VAR city&gt;</span>&lt;/td&gt;
+                    &lt;/tr&gt;
+                <span class="red">&lt;/TMPL_LOOP&gt;</span>
+            &lt;/table&gt;
+        &lt;/body&gt;
+    &lt;/html&gt;
+          </pre>
+          
+          <h3>template.py</h3>
+          <pre>
+<span class="keyword">from</span> htmltmpl <span class="keyword">import</span> Template
+tmpl = Template(template = &quot;<span class="string">template.tmpl</span>&quot;,
+                template_path = [&quot;<span class="string">/my/templates</span>&quot;])
+
+<span class="comment"># Set the title.
+</span>tmpl[&quot;<span class="string">title</span>&quot;] = &quot;<span class="string">Our customers</span>&quot;
+
+<span class="comment"># Create the 'Customers' loop.
+</span>customers = []
+
+<span class="comment"># First customer.
+</span>customer = {}
+customer[&quot;<span class="string">name</span>&quot;] = &quot;<span class="string">Joe Sixpack</span>&quot;
+customer[&quot;<span class="string">city</span>&quot;] = &quot;<span class="string">Los Angeles</span>&quot;
+customer[&quot;<span class="string">new</span>&quot;] = 0
+customers.append(customer)
+
+<span class="comment"># Second customer.
+</span>customer = {}
+customer[&quot;<span class="string">name</span>&quot;] = &quot;<span class="string">Paul Newman</span>&quot;
+customer[&quot;<span class="string">city</span>&quot;] = &quot;<span class="string">New York</span>&quot;
+customer[&quot;<span class="string">new</span>&quot;] = 1
+customers.append(customer)
+
+tmpl[&quot;<span class="string">Customers</span>&quot;] = customers
+
+<span class="comment"># Print the processed template.
+</span><span class="keyword">print</span> tmpl.output()
+          </pre>
+          
+          <h3>result.html</h3>
+          <pre>
+    &lt;html&gt;
+        &lt;head&gt;
+            &lt;title&gt;Our customers&lt;/title&gt;
+        &lt;/head&gt;
+        &lt;body&gt;
+            &lt;h1&gt;Customers:&lt;/h1&gt;
+            &lt;p&gt;
+                Total: 2
+            &lt;/p&gt;
+            
+            &lt;table&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;old customer&lt;/td&gt;
+                    &lt;td&gt;1&lt;/td&gt;
+                    &lt;td&gt;Joe Sixpack&lt;/td&gt;
+                    &lt;td&gt;Los Angeles&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;new customer&lt;/td&gt;
+                    &lt;td&gt;2&lt;/td&gt;
+                    &lt;td&gt;Paul Newman&lt;/td&gt;
+                    &lt;td&gt;New York&lt;/td&gt;
+                &lt;/tr&gt;                
+            &lt;/table&gt;
+        &lt;/body&gt;
+    &lt;/html&gt;
+          </pre>
+          
+        </td>
+      </tr>
+    </table>
+    
+  </body>
+</html>

@@ -1,0 +1,11 @@
+include LICENSE
+include README
+include TODO
+include VERSION
+include CODING
+include MANIFEST
+include MANIFEST.in
+include Changes
+include test.py
+recursive-include test *.py *.tmpl *.res README
+recursive-include doc *

@@ -1,0 +1,38 @@
+
+body {
+    font-family: "Helvetica CE", "Arial CE", Helvetica, Arial, sans-serif;
+    background-color: rgb(255,255,204);
+    color: black;
+}
+
+a {
+    color: red;
+}
+
+.red {
+    color: red;
+    font-weight: bold;
+}
+
+.title {
+    font-size: larger;
+}
+
+.noborder {
+    border-width: 0;
+}
+
+span.keyword {
+    color: #ff0000;
+    font-weight: bold;
+} /* font-lock-keyword-face */
+
+span.string {
+    color: #008b00;
+    font-weight: bold;
+} /* font-lock-string-face */
+
+span.comment {
+    color: #00008b;
+    font-style: italic;
+} /* font-lock-comment-face */
