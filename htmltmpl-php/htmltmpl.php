@@ -26,7 +26,7 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.10);
+define('_VERSION', 1.11);
 define('_AUTHOR', 'Tomas Styblo (tripie@cpan.org)');
 
 # All included templates must be placed in a subdirectory of

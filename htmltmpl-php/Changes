@@ -1,4 +1,7 @@
 
+    1.11 : 2001/11/28
+        - this release fixes a major bug in the new gettext suppport
+
     1.10 : 2001/11/26
         - New major feature: integrated GETTEXT support which is
           ideal for easy creation of multilingual web applications.
