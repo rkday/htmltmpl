@@ -1020,7 +1020,8 @@ class TemplateCompiler {
         $tokens =& $this->parse($this->read($file));
         $compile_params = array($this->_include,
                                 $this->_max_include,
-                                $this->_comments);
+                                $this->_comments,
+                                $this->_gettext);
         return new Template(_VERSION, $file, $this->_include_files,
                             $tokens, $compile_params);
     }

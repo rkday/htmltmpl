@@ -1,4 +1,7 @@
 
+    1.22 : 2001/12/10
+        - precompilation with gettext bugfix
+
     1.21 : 2001/11/28
         - this release fixes a major bug in the new gettext support
 

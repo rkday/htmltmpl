@@ -984,7 +984,8 @@ class TemplateCompiler:
         self.DEB("COMPILING FROM FILE: " + file)
         self._include_path = os.path.join(os.path.dirname(file), INCLUDE_DIR)
         tokens = self.parse(self.read(file))
-        compile_params = (self._include, self._max_include, self._comments)
+        compile_params = (self._include, self._max_include, self._comments,
+                          self._gettext)
         return Template(__version__, file, self._include_files,
                         tokens, compile_params, self._debug)
 
