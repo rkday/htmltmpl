@@ -27,7 +27,8 @@
     Prague, the Czech Republic
 """
 
-VERSION = 1.10
+__version__ = 1.12
+__author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of standard Python library.
 
@@ -214,7 +215,7 @@ class Template:
             tokens = self.use_compiled()
         else:
             tokens = self.compile_template()
-        self._cached = Metadata(VERSION, self._main_file,
+        self._cached = Metadata(__version__, self._main_file,
                                 self._include_files, tokens, self._debug)
 
     def use_compiled(self):
@@ -231,7 +232,7 @@ class Template:
 
         # We have to recompile the template.
         tokens = self.compile_template()
-        new_compiled = Metadata(VERSION, self._main_file, 
+        new_compiled = Metadata(__version__, self._main_file, 
                                 self._include_files, tokens, self._debug)
         self.save_compiled(new_compiled)
         return tokens
@@ -786,8 +787,8 @@ class Metadata:
         self.__dict__ = dict
 
     def is_uptodate(self):
-        if self._version != VERSION:
-            self.DEB("META: FALSE: VERSION")
+        if self._version != __version__:
+            self.DEB("META: FALSE: __version__")
             return 0
     
         # Check modification times of the main template and all included
