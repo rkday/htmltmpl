@@ -26,8 +26,10 @@
     CVS:            $Id$
 */
 
-define('_VERSION', 1.20);
+define('_VERSION', 1.21);
 define('_AUTHOR', 'Tomas Styblo <tripie@cpan.org>');
+
+# $HTMLTMPL_DEBUG = "../log/htmltmpl.log";
 
 # All included templates must be placed in a subdirectory of
 # a directory in which the main template is placed. The name of the
@@ -460,7 +462,7 @@ class TemplateManager {
         ignore_user_abort($old_ignore_user_abort);
         _DEB('SAVING PRECOMPILED');
 
-        $this->save_precompiled_cproc($template);
+        # $this->save_precompiled_cproc($template);
     }
 
     function save_precompiled_cproc(&$template) {
@@ -517,7 +519,9 @@ class TemplateProcessor {
     var $_current_part;
     var $_current_pos;
     var $_gettext_func;
- 
+    var $_direct_filter;
+    var $_direct_fh;
+
     function TemplateProcessor($html_escape=TRUE, $magic_vars=TRUE,
                                $global_vars=FALSE, $gettext_func=NULL) {
         # Constructor.
@@ -639,7 +643,8 @@ class TemplateProcessor {
         _DEB('RESET');
     }  
     
-    function process(&$template, $part=NULL) {
+    function process(&$template, $part=NULL, $direct=FALSE, 
+            $direct_filter=NULL, $direct_fh=NULL) {
         # Process a compiled template. Return the result as string.
         #
         # This method actually processes a template and returns
@@ -670,7 +675,10 @@ class TemplateProcessor {
         if ($part != NULL && ($part == 0 || $part < $this->_current_part)) {
             __error('htmltmpl - process(): invalid part number.');
         }    
-        
+       
+        $this->_direct_filter = $direct_filter;
+        $this->_direct_fh = $direct_fh;
+       
         # This flag means "jump behind the end of current statement" or
         # "skip the parameters of current statement".
         # Even parameters that actually are not present in the template
@@ -693,7 +701,10 @@ class TemplateProcessor {
 
         $tokens =& $template->tokens();
         $len_tokens = count($tokens);
-        $out = '';              # buffer for processed output
+
+        if (! $direct) {
+            $out = '';              # buffer for processed output
+        }
         
         # Recover position at which we ended after processing of last part.
         $i = $this->_current_pos;
@@ -730,7 +741,12 @@ class TemplateProcessor {
                         $value = $this->find_value($var, $loop_name,
                                                    $loop_pass, $loop_total,
                                                    $global);
-                        $out .= $this->escape($this->_html_escape, $value, $escape);
+                        if ($direct) {
+                            $this->direct_output($this->escape($this->_html_escape, $value, $escape));
+                        }
+                        else {
+                            $out .= $this->escape($this->_html_escape, $value, $escape);
+                        }
                         _DEB("VAR: $var");
                     }
                 }
@@ -889,7 +905,7 @@ class TemplateProcessor {
                     # when it was not replaced by the parser.
                     $skip_params = TRUE;
                     $filename = $tokens[$i + _PARAM_NAME];
-                    $out .= "
+                    $x = "
                         <br />
                         <p>
                         <strong>HTMLTMPL WARNING:</strong><br />
@@ -897,6 +913,12 @@ class TemplateProcessor {
                         </p>
                         <br />
                     ";
+                    if ($direct) {
+                        $this->direct_output($x);
+                    }
+                    else {
+                        $out .= $x;
+                    }
                     _DEB('CANNOT INCLUDE WARNING');
                 }                
 
@@ -905,11 +927,17 @@ class TemplateProcessor {
                     if (! in_array($DISABLE_OUTPUT, $output_control)) {
                         $text = $tokens[$i + _PARAM_GETTEXT_STRING];
                         if ($this->_gettext_func == NULL) {
-                            $out .= gettext($text);
+                            $x = gettext($text);
                         }
                         else {
                             $func = $this->_gettext_func;
-                            $out .= $func($text);
+                            $x = $func($text);
+                        }
+                        if ($direct) {
+                            $this->direct_output($x);
+                        }
+                        else {
+                            $out .= $x;
                         }
                         _DEB("GETTEXT: $text");
                     }
@@ -928,8 +956,14 @@ class TemplateProcessor {
                     if (! in_array($DISABLE_OUTPUT, $output_control)) {
                         $value = $this->find_value($name, $loop_name,
                                $loop_pass, $loop_total, FALSE);
-                        $out .= '<input type="text" name="'.htmlspecialchars($name).'" '.
+                        $x = '<input type="text" name="'.htmlspecialchars($name).'" '.
                                 'value="'.htmlspecialchars($value)."\" $extra />"."\n";
+                        if ($direct) {
+                            $this->direct_output($x);
+                        }
+                        else {
+                            $out .= $x;
+                        }
                     }
                 }
                 
@@ -950,14 +984,22 @@ class TemplateProcessor {
                         $passtotal = $this->find_value($name, $loop_name,
                                                        $loop_pass, $loop_total);
                         if ($passtotal > 0) {
+                            $x = '';
                             if ($token == INT_TMPL_SELECT) {
-                                $out .= '<select name="'.htmlspecialchars($name)."\" $extra>\n";
+                                $x = '<select name="'.htmlspecialchars($name)."\" $extra>\n";
                             }
                             else if ($token == INT_TMPL_CHECKBOX) {
-                                $out .= "<!-- checkbox: ".htmlspecialchars($name)." -->\n";
+                                $x = "<!-- checkbox: ".htmlspecialchars($name)." -->\n";
                             }
                             else if ($token == INT_TMPL_RADIO) {
-                                $out .= "<!-- radio: ".htmlspecialchars($name)." -->\n";
+                                $x = "<!-- radio: ".htmlspecialchars($name)." -->\n";
+                            }
+                           
+                            if ($direct) {
+                                $this->direct_output($x);
+                            }
+                            else {
+                                $out .= $x;
                             }
                             
                             # Push data for this loop on the stack.
@@ -990,22 +1032,30 @@ class TemplateProcessor {
                                     $sel = FALSE;
                                 }
 
+                                $x = '';
                                 if ($token == INT_TMPL_SELECT) {
                                     if ($sel) { $sel = "selected"; }
-                                    $out .= '<option value="'.htmlspecialchars($value)."\" $sel>".
+                                    $x = '<option value="'.htmlspecialchars($value)."\" $sel>".
                                             htmlspecialchars($text)."</option>\n";
                                 }
                                 else if ($token == INT_TMPL_CHECKBOX) {
                                      if ($sel) { $sel = "checked"; }
-                                     $out .= '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
+                                     $x = '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
                                              'value="'.htmlspecialchars($value)."\" $sel $extra />".' '.
                                             htmlspecialchars($text)."\n";
                                 }
                                 else if ($token == INT_TMPL_RADIO) {
                                       if ($sel) { $sel = "checked"; }
-                                      $out .= '<input type="radio" name="'.htmlspecialchars($name).'" '.
+                                      $x = '<input type="radio" name="'.htmlspecialchars($name).'" '.
                                              'value="'.htmlspecialchars($value)."\" $sel $extra />".' '.
                                             htmlspecialchars($text)."\n";
+                                }
+
+                                if ($direct) {
+                                    $this->direct_output($x);
+                                }
+                                else {
+                                    $out .= $x;
                                 }
 
                                 # If this loop was not disabled, then record the pass.
@@ -1023,8 +1073,13 @@ class TemplateProcessor {
                                     _DEB('SELECT/CHECKBOX/RADIO: END');
                                     break;
                                 }
-                            }                     
-                            $out .= "</select>\n";
+                            }
+                            if ($direct) {
+                                $this->direct_output("</select>\n");
+                            }
+                            else {
+                                $out .= "</select>\n";
+                            }
                         }
                     }
                 }
@@ -1040,14 +1095,21 @@ class TemplateProcessor {
                     $skip_params = TRUE;
 
                     if (! in_array($DISABLE_OUTPUT, $output_control)) {
+                        $x = '';
                         if ($token == INT_TMPL_CUSTSELECT) {
-                            $out .= '<select name="'.htmlspecialchars($name)."\" $extra>\n";
+                            $x = '<select name="'.htmlspecialchars($name)."\" $extra>\n";
                         }
                         else if ($token == INT_TMPL_CUSTCHECKBOX) {
-                             $out .= '<!-- custcheckbox: '.htmlspecialchars($name)." -->\n";
+                            $x = '<!-- custcheckbox: '.htmlspecialchars($name)." -->\n";
                         }
                         else if ($token == INT_TMPL_CUSTRADIO) {
-                             $out .= '<!-- custradio: '.htmlspecialchars($name)." -->\n";
+                            $x = '<!-- custradio: '.htmlspecialchars($name)." -->\n";
+                        }
+                        if ($direct) {
+                            $this->direct_output($x);
+                        }
+                        else {
+                            $out .= $x;
                         }
                     }
 
@@ -1078,21 +1140,28 @@ class TemplateProcessor {
                         }
                         
                         $ctype = _last_item($cust_type);
+                        $x = '';
                         switch ($ctype) {
                             case INT_TMPL_CUSTSELECT:
                                 if ($sel) { $sel = "selected"; }
-                                $out .= '<option value="'.htmlspecialchars($value)."\" $sel $extra>";
+                                $x = '<option value="'.htmlspecialchars($value)."\" $sel $extra>";
                                 break;
                             case INT_TMPL_CUSTCHECKBOX:
                                 if ($sel) { $sel = "checked"; }
-                                $out .= '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
+                                $x = '<input type="checkbox" name="'.htmlspecialchars($name).'" '.
                                         'value="'.htmlspecialchars($value)."\" $sel $extra />";
                                 break;
                             case INT_TMPL_CUSTRADIO:
                                 if ($sel) { $sel = "checked"; }
-                                $out .= '<input type="radio" name="'.htmlspecialchars($name).'" '.
+                                $x = '<input type="radio" name="'.htmlspecialchars($name).'" '.
                                         'value="'.htmlspecialchars($value)."\" $sel $extra />";
                                 break;
+                        }
+                        if ($direct) {
+                            $this->direct_output($x);
+                        }
+                        else {
+                            $out .= $x;
                         }
                         _DEB("CUST OPTION: $value");
                     }
@@ -1108,7 +1177,12 @@ class TemplateProcessor {
 
                     if (_last_item($cust_type) == INT_TMPL_CUSTSELECT) {
                         if (! in_array($DISABLE_OUTPUT, $output_control)) {
-                            $out .= "</select>\n";
+                            if ($direct) {
+                                $this->direct_output("</select>\n");
+                            }
+                            else {
+                                $out .= "</select>\n";
+                            }
                         }
                     }
                     
@@ -1122,11 +1196,17 @@ class TemplateProcessor {
                     __error("Invalid statement $token>.");
                 }                                  
             }
+            
             elseif (! in_array($DISABLE_OUTPUT, $output_control)) {
                 # Raw textual template data.
                 # If output of current block is not disabled, then 
                 # append the template data to the output buffer.
-                $out .= $token;
+                if ($direct) {
+                    $this->direct_output($token);
+                }
+                else {
+                    $out .= $token;
+                }
             }
                 
             $i++;            
@@ -1139,14 +1219,33 @@ class TemplateProcessor {
         if ($output_control) {
             __error('Missing </TMPL_IF> or </TMPL_UNLESS>.');
         }
-
-        return $out;
+       
+        # finish the processing
+        if ($direct) {
+            flush();
+        }
+        else {
+            return $out;
+        }
     }
 
     ##############################################
     #              PRIVATE METHODS               #
     ##############################################
-    
+   
+    function direct_output($data) {
+        if ($this->_direct_filter != NULL) {
+            $data = call_user_func($this->_direct_filter, $data);
+        }
+
+        if ($this->_direct_fh != NULL) {
+            fwrite($this->_direct_fh, $data);
+        }
+        else {
+            print $data;
+        }
+    }
+   
     function find_value($var, &$loop_name, &$loop_pass, &$loop_total,
                         $global_override=NULL) {
         # Search the $this->_vars data structure to find variable var
@@ -2084,6 +2183,21 @@ class TemplateLoop {
 
     function commit() {
         $this->_tp->set($this->_name, $this->_data);
+    }
+}
+
+class HtmltmplUtil {
+    function gettimeofday_diff_ms($from, $to=NULL) {    
+        if ($to == NULL) {
+            $to = gettimeofday();
+        }
+
+        $diff = (($to["sec"] == $from["sec"] ? 
+            $to["usec"] - $from["usec"] :
+            $to["usec"] + (1e6 - $from["usec"]) + 
+            ((($to["sec"] - $from["sec"]) - 1) * 1e6)) / 1000);
+            
+        return ($diff);
     }
 }
 

@@ -3,7 +3,7 @@
 # A script to fetch gettext strings from a htmltmpl template.
 # The strings must be in the special htmltmpl format:
 #
-#   [string]
+#   [[string]]
 #
 # It uses stdin and stdout and takes no parameters.
 #

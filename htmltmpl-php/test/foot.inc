@@ -1,5 +1,7 @@
 <?
+$start = gettimeofday();
 $output .= $tproc->process($template);
+$elapsed = HtmltmplUtil::gettimeofday_diff_ms($start);
 
 if (in_array('out', $argv)) {
     echo $output;
@@ -13,7 +15,7 @@ fclose($res_file);
 echo $TEST, ' ... ';
 
 if ($output == $res) {
-    echo 'OK';
+    echo sprintf("OK ... %d ms", $elapsed);
 }
 else {
     echo 'FAILED';

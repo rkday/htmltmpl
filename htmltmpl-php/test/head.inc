@@ -1,5 +1,6 @@
 <?
 require('../htmltmpl.php');
+
 if (in_array('debug', $argv)) {
     $HTMLTMPL_DEBUG = 'debug.log';
 }

@@ -57,7 +57,7 @@ echo "$TEST ... ";
 if ($output == $res && is_file("$TEST.tmplc")) {
     echo "OK";
     unlink("$TEST.tmplc");
-    unlink("$TEST.tmplcc");
+    # unlink("$TEST.tmplcc");
 }
 else {
     echo "FAILED";

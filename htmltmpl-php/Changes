@@ -1,4 +1,21 @@
 
+    1.21 : 2003/01/03
+
+        This is the last release before 2.00. The 2.00 release will include
+        documentation of all the new undocumented features.
+        
+        The engine is quite good and stable now, so I plan to rewrite the
+        documentation, update the website and advertise the project more.
+       
+        New features in this release:
+
+            - optional direct output to stdout
+            - optional direct output to an open filehandle
+            - optional direct output filtering callback function
+
+        Check the source code for new parameters of the
+        TemplateProcessor::process() method to see how to use them.
+
     
     1.20 : 2002/11/01
         
