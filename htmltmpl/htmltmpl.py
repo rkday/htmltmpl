@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.20
+    @version        1.21
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.20
+__version__ = 1.21
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.
@@ -742,9 +742,10 @@ class TemplateProcessor:
 
                 elif token == "<TMPL_GETTEXT":
                     skip_params = 1
-                    text = tokens[i + PARAM_GETTEXT_STRING]
-                    out += gettext.gettext(text)
-                    self.DEB("GETTEXT: " + text)
+                    if DISABLE_OUTPUT not in output_control:
+                        text = tokens[i + PARAM_GETTEXT_STRING]
+                        out += gettext.gettext(text)
+                        self.DEB("GETTEXT: " + text)
                     
                 else:
                     # Unknown processing directive.
