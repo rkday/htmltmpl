@@ -3,10 +3,10 @@
 
     The documentation of this templating engine is separated to two parts:
     
-        1. Description of the HTML::Template templating language.
+        1. Description of the templating language.
            
         2. Documentation of classes and API of this module that provides
-           a Python implementation of the HTML::Template language.
+           a Python implementation of the templating language.
     
     All the documentation can be found in 'doc' directory of the
     distribution tarball or at the homepage of the engine.
@@ -20,7 +20,7 @@
     Copyright (c) 2001 Tomas Styblo, tripie@cpan.org
 
     @name           htmltmpl
-    @version        1.17
+    @version        1.18
     @author-name    Tomas Styblo
     @author-email   tripie@cpan.org
     @website        http://htmltmpl.sourceforge.net/
@@ -28,7 +28,7 @@
     @license-url    http://www.gnu.org/licenses/gpl.html
 """
 
-__version__ = 1.17
+__version__ = 1.18
 __author__ = "Tomas Styblo (tripie@cpan.org)"
 
 # All imported modules are part of the standard Python library.
@@ -45,6 +45,15 @@ import urllib       # for URL escaping of variables
 import cPickle      # for template compilation
 
 INCLUDE_DIR = "inc"
+
+# Total number of possible parameters.
+# Increment if adding a parameter to any statement.
+PARAMS_NUMBER = 3
+
+# Relative positions of parameters in TemplateCompiler.tokenize().
+PARAM_NAME = 1
+PARAM_ESCAPE = 2
+PARAM_GLOBAL = 3
 
 # Find a way to lock files. Currently implemented only for UNIX and windows.
 LOCKTYPE_FCNTL = 1
@@ -282,6 +291,8 @@ class TemplateManager:
     
     def is_precompiled(self, file):
         """ Return true if the template is already precompiled on the disk.
+            This method doesn't check whether the compiled template is
+            uptodate.
             @hidden
         """
         filename = file + "c"   # "template.tmplc"
@@ -293,8 +304,8 @@ class TemplateManager:
     def load_precompiled(self, file):
         """ Load precompiled template from disk.
 
-            Remove the precompiled template file and raise PrecompiledError
-            exception if it contains corrupted or unpicklable data.
+            Remove the precompiled template file and recompile it
+            if the file contains corrupted or unpicklable data.
             
             @hidden
         """
@@ -328,7 +339,7 @@ class TemplateManager:
                 os.remove(filename)
                 
     def save_precompiled(self, template):
-        """ Save compiled template and to disk in precompiled form.
+        """ Save compiled template to disk in precompiled form.
             
             Associated metadata is also saved. It includes: filename of the
             main template file, modification time of the main template file,
@@ -342,10 +353,11 @@ class TemplateManager:
         """
         filename = template.file() + "c"   # creates "template.tmplc"
         # Check if we have write permission to the template's directory.
-        tdir = os.path.dirname(os.path.abspath(filename))
-        if not os.access(tdir, os.W_OK):
+        template_dir = os.path.dirname(os.path.abspath(filename))
+        if not os.access(template_dir, os.W_OK):
             raise TemplateError, "Cannot save precompiled templates "\
-                                 "to '%s': write permission denied." % tdir
+                                 "to '%s': write permission denied."\
+                                 % template_dir
         try:
             remove_bad = 0
             file = None
@@ -389,7 +401,7 @@ class TemplateManager:
 class TemplateProcessor:
     """ Fill the template with data and process it.
 
-        This class provides actual processing of the template.
+        This class provides actual processing of a compiled template.
         Use it to set template variables and loops and then obtain
         result of the processing.
     """
@@ -428,8 +440,8 @@ class TemplateProcessor:
             @param debug Enable or disable debugging messages.
         """
         self._html_escape = html_escape
-        self._global_vars = global_vars       
         self._magic_vars = magic_vars
+        self._global_vars = global_vars
         self._debug = debug        
 
         # Data structure containing variables and loops set by the
@@ -437,6 +449,10 @@ class TemplateProcessor:
         # then check stderr to see how the structure looks.
         # It's modified only by set() and reset() methods.
         self._vars = {}        
+
+        # Following variables are for multipart templates.
+        self._current_part = 1
+        self._current_pos = 0
 
     def set(self, var, value):
         """ Associate a value with top-level template variable or loop.
@@ -463,10 +479,14 @@ class TemplateProcessor:
             @param value The value to associate.
             
         """
+        # The correctness of character case is verified only for top-level
+        # variables.
         if self.is_ordinary_var(value):
+            # template top-level ordinary variable
             if not var.islower():
                 raise TemplateError, "Invalid variable name '%s'." % var
         elif type(value) == ListType:
+            # template top-level loop
             if var != var.capitalize():
                 raise TemplateError, "Invalid loop name '%s'." % var
         else:
@@ -475,44 +495,58 @@ class TemplateProcessor:
         self._vars[var] = value
         self.DEB("VALUE SET: " + str(var))
         
-    def reset(self):
+    def reset(self, keep_data=0):
         """ Reset the template data.
 
             This method resets the data contained in the template processor
             instance. The template processor instance can be used to process
-            any number of templates.
+            any number of templates, but this method must be called after
+            a template is processed to reuse the instance,
 
-            @header reset()
-            @return No return value.             
+            @header reset(keep_data=0)
+            @return No return value.
+
+            @param keep_data Do not reset the template data.
+            Use this flag if you do not want the template data to be erased.
+            This way you can reuse the data contained in the instance of
+            the <em>TemplateProcessor</em>.
         """
-        self._vars.clear()
+        self._current_part = 1
+        self._current_pos = 0
+        if not keep_data:
+            self._vars.clear()
         self.DEB("RESET")
 
-    def process(self, template):
+    def process(self, template, part=None):
         """ Process a compiled template. Return the result as string.
 
             This method actually processes a template and returns
             the result.
 
-            @header process(template)
+            @header process(template, part=None)
             @return Result of the processing as string.
 
             @param template A compiled template.
             Value of this parameter must be an instance of the
             <em>Template</em> class created either by the
             <em>TemplateManager</em> or by the <em>TemplateCompiler</em>.
+
+            @param part The part of a multipart template to process.
+            This parameter can be used only together with a multipart
+            template. It specifies the number of the part to process.
+            It must be greater than zero, because the parts are numbered
+            from one.
+
+            The parts must be processed in the right order. You
+            cannot process a part which precedes an already processed part.
+
+            If this parameter is not specified, then the whole template
+            is processed, or all remaining parts are processed.
         """
         self.DEB("APP INPUT:")
         if self._debug: pprint.pprint(self._vars, sys.stderr)
-        
-        # Total number of parameters in regexp in parse_template().
-        # Increment if adding a parameter to any statement.
-        PARSE_PARAMS = 3
-
-        # Relative positions of parameters in regexp in parse_template().
-        PARAM_NAME = 1
-        PARAM_ESCAPE = 2
-        PARAM_GLOBAL = 3
+        if part != None and (part == 0 or part < self._current_part):
+            raise TemplateError, "process() - invalid part number"
 
         # This flag means "jump behind the end of current statement" or
         # "skip the parameters of current statement".
@@ -522,7 +556,7 @@ class TemplateProcessor:
 
         # Stack for enabling or disabling output in response to TMPL_IF,
         # TMPL_UNLESS, TMPL_ELSE and TMPL_LOOPs with no passes.
-        output = []
+        output_control = []
         ENABLE_OUTPUT = 1
         DISABLE_OUTPUT = 0
         
@@ -534,23 +568,25 @@ class TemplateProcessor:
         
         tokens = template.tokens()
         len_tokens = len(tokens)
-        out = ""
+        out = ""              # buffer for processed output
 
+        # Recover position at which we ended after processing of last part.
+        i = self._current_pos
+            
         # Process the list of tokens.
-        i = 0
         while 1:
             if i == len_tokens: break            
             if skip_params:   
                 # Skip the parameters following a statement.
                 skip_params = 0
-                i += PARSE_PARAMS
+                i += PARAMS_NUMBER
                 continue
 
             token = tokens[i]
             if token.startswith("<TMPL_") or \
                token.startswith("</TMPL_"):
                 if token == "<TMPL_VAR":
-                    # TMPL_VARs should be first. They are most common.
+                    # TMPL_VARs should be first. They are the most common.
                     var = tokens[i + PARAM_NAME]
                     if not var:
                         raise TemplateError, "No identifier in <TMPL_VAR>."
@@ -560,7 +596,7 @@ class TemplateProcessor:
                     
                     # If output of current block is not disabled then append
                     # the substitued and escaped variable to the output.
-                    if DISABLE_OUTPUT not in output:
+                    if DISABLE_OUTPUT not in output_control:
                         value = str(self.find_value(var, loop_name, loop_pass,
                                                     loop_total, globalp))
                         out += self.escape(value, escape)
@@ -586,10 +622,10 @@ class TemplateProcessor:
                     # in this loop is zero.
                     if passtotal == 0:
                         # This loop is empty.
-                        output.append(DISABLE_OUTPUT)
+                        output_control.append(DISABLE_OUTPUT)
                         self.DEB("LOOP: DISABLE: " + str(var))
                     else:
-                        output.append(ENABLE_OUTPUT)
+                        output_control.append(ENABLE_OUTPUT)
                         self.DEB("LOOP: FIRST PASS: %s TOTAL: %d"\
                                  % (var, passtotal))
 
@@ -599,13 +635,13 @@ class TemplateProcessor:
                         raise TemplateError, "No identifier in <TMPL_IF>."
                     globalp = tokens[i + PARAM_GLOBAL]
                     skip_params = 1
-                    if not self.find_value(var, loop_name, loop_pass,
-                                          loop_total, globalp):
-                        output.append(DISABLE_OUTPUT)
-                        self.DEB("IF: DISABLE: " + str(var))
-                    else:
-                        output.append(ENABLE_OUTPUT)
+                    if self.find_value(var, loop_name, loop_pass,
+                                       loop_total, globalp):
+                        output_control.append(ENABLE_OUTPUT)
                         self.DEB("IF: ENABLE: " + str(var))
+                    else:
+                        output_control.append(DISABLE_OUTPUT)
+                        self.DEB("IF: DISABLE: " + str(var))
      
                 elif token == "<TMPL_UNLESS":
                     var = tokens[i + PARAM_NAME]
@@ -615,10 +651,10 @@ class TemplateProcessor:
                     skip_params = 1
                     if self.find_value(var, loop_name, loop_pass,
                                       loop_total, globalp):
-                        output.append(DISABLE_OUTPUT)
+                        output_control.append(DISABLE_OUTPUT)
                         self.DEB("UNLESS: DISABLE: " + str(var))
                     else:
-                        output.append(ENABLE_OUTPUT)
+                        output_control.append(ENABLE_OUTPUT)
                         self.DEB("UNLESS: ENABLE: " + str(var))
      
                 elif token == "</TMPL_LOOP":
@@ -636,7 +672,7 @@ class TemplateProcessor:
                         loop_name.pop()
                         loop_start.pop()
                         loop_total.pop()
-                        output.pop()
+                        output_control.pop()
                         self.DEB("LOOP: END")
                     else:
                         # Jump to the beggining of this loop block 
@@ -646,37 +682,65 @@ class TemplateProcessor:
      
                 elif token == "</TMPL_IF":
                     skip_params = 1
-                    if not output:
+                    if not output_control:
                         raise TemplateError, "Unmatched </TMPL_IF>."
-                    output.pop()
+                    output_control.pop()
                     self.DEB("IF: END")
      
                 elif token == "</TMPL_UNLESS":
                     skip_params = 1
-                    if not output:
+                    if not output_control:
                         raise TemplateError, "Unmatched </TMPL_UNLESS>."
-                    output.pop()
+                    output_control.pop()
                     self.DEB("UNLESS: END")
      
                 elif token == "<TMPL_ELSE":
                     skip_params = 1
-                    if not output:
+                    if not output_control:
                         raise TemplateError, "Unmatched <TMPL_ELSE>."
-                    if output[-1] == DISABLE_OUTPUT:
+                    if output_control[-1] == DISABLE_OUTPUT:
                         # Condition was false, activate the ELSE block.
-                        output[-1] = ENABLE_OUTPUT
+                        output_control[-1] = ENABLE_OUTPUT
                         self.DEB("ELSE: ENABLE")
-                    elif output[-1] == ENABLE_OUTPUT:
+                    elif output_control[-1] == ENABLE_OUTPUT:
                         # Condition was true, deactivate the ELSE block.
-                        output[-1] = DISABLE_OUTPUT
+                        output_control[-1] = DISABLE_OUTPUT
                         self.DEB("ELSE: DISABLE")
                     else:
                         raise TemplateError, "BUG: ELSE: INVALID FLAG"
+
+                elif token == "<TMPL_BOUNDARY":
+                    if part and part == self._current_part:
+                        self.DEB("BOUNDARY ON")
+                        self._current_part += 1
+                        self._current_pos = i + 1 + PARAMS_NUMBER
+                        break
+                    else:
+                        skip_params = 1
+                        self.DEB("BOUNDARY OFF")
+                        self._current_part += 1
+
+                elif token == "<TMPL_INCLUDE":
+                    # TMPL_INCLUDE is left in the compiled template only
+                    # when it was not replaced by the parser.
+                    skip_params = 1
+                    filename = tokens[i + PARAM_NAME]
+                    out += """
+                        <br />
+                        <p>
+                        <strong>HTMLTMPL WARNING:</strong><br />
+                        Cannot include template: <strong>%s</strong>
+                        </p>
+                        <br />
+                    """ % filename
+                    self.DEB("CANNOT INCLUDE WARNING")
  
                 else:
+                    # Unknown processing directive.
                     raise TemplateError, "Invalid statement %s>." % token
                      
-            elif DISABLE_OUTPUT not in output:
+            elif DISABLE_OUTPUT not in output_control:
+                # Raw textual template data.
                 # If output of current block is not disabled, then 
                 # append template data to the output buffer.
                 out += token
@@ -686,7 +750,7 @@ class TemplateProcessor:
         
         # Check whether all opening statements were closed.
         if loop_name: raise TemplateError, "Missing </TMPL_LOOP>."
-        if output: raise TemplateError, "Missing </TMPL_IF> or </TMPL_UNLESS>"
+        if output_control: raise TemplateError, "Missing </TMPL_IF> or </TMPL_UNLESS>"
         return out
 
     ##############################################
@@ -700,7 +764,7 @@ class TemplateProcessor:
         if self._debug: print >> sys.stderr, str
 
     def find_value(self, var, loop_name, loop_pass, loop_total,
-                   global_override=""):
+                   global_override=None):
         """ Search the self._vars data structure to find variable var
             located in currently processed pass of a loop which
             is currently being processed. If the variable is an ordinary
@@ -803,7 +867,7 @@ class TemplateProcessor:
             if loop_pass != 0 and loop_pass != loop_total - 1:
                 # Check if an integer follows the variable name.
                 try:
-                    every = int(var[9])   # nine is length of "__EVERY__"
+                    every = int(var[9:])   # nine is length of "__EVERY__"
                 except ValueError:
                     raise TemplateError, "Magic variable __EVERY__x: "\
                                          "Invalid pass number."
@@ -816,11 +880,13 @@ class TemplateProcessor:
                         return 1
                     else:
                         return 0
+            else:
+                return 0
         else:
             raise TemplateError, "Invalid magic variable '%s'." % var
 
     def escape(self, str, override=""):
-        """ Escape a string.
+        """ Escape a string either by HTML escaping or by URL escaping.
             @hidden
         """
         ESCAPE_QUOTES = 1
@@ -901,8 +967,7 @@ class TemplateCompiler:
         
         self.DEB("COMPILING FROM FILE: " + file)
         self._include_path = os.path.join(os.path.dirname(file), INCLUDE_DIR)
-        preprocessed = self.preprocess(self.read(file))
-        tokens = map(self.merge_statements, self.parse(preprocessed))
+        tokens = self.parse(self.read(file))
         compile_params = (self._include, self._max_include, self._comments)
         return Template(__version__, file, self._include_files,
                         tokens, compile_params, self._debug)
@@ -912,7 +977,7 @@ class TemplateCompiler:
 
             This method compiles a template from a string. The
             template cannot include any templates.
-            <strong>TMPL_INCLUDE</strong> statements are ignored.
+            <strong>TMPL_INCLUDE</strong> statements are turned into warnings.
 
             @header compile_string(data)
             @return Compiled template.
@@ -923,8 +988,7 @@ class TemplateCompiler:
         """
         self.DEB("COMPILING FROM STRING")
         self._include = 0
-        preprocessed = self.preprocess(data)
-        tokens = map(self.merge_statements, self.parse(preprocessed))
+        tokens = self.parse(data)
         compile_params = (self._include, self._max_include, self._comments)
         return Template(__version__, None, None, tokens, compile_params,
                         self._debug)
@@ -940,7 +1004,8 @@ class TemplateCompiler:
         if self._debug: print >> sys.stderr, str
     
     def read(self, filename):
-        """ Read content of file and return it.
+        """ Read content of file and return it. Raise an error if a problem
+            occurs.
             @hidden
         """
         self.DEB("READING: " + filename)
@@ -956,131 +1021,175 @@ class TemplateCompiler:
                 return data
         finally:
             if f: f.close()
+               
+    def parse(self, template_data):
+        """ Parse the template. This method is recursively called from
+            within the include_templates() method.
 
-    def merge_statements(self, token):
-        """ Convert '&lt;!-- TMPL_*' tokens to '&lt;TMPL_*' tokens.
-            This is optimization, because then we can only test for
-            '<TMPL_*' in process().
-
-            @hidden
-        """
-        if token and (token.startswith("<!-- TMPL_") or \
-                      token.startswith("<!-- /TMPL_")):
-            ret_token = "<" + token[5:]
-            self.DEB("MERGING TOKEN: '%s' => '%s'" % (token, ret_token))
-        else:
-            ret_token = token
-        return ret_token
-                
-    def preprocess(self, data):
-        """ Preprocess the template. Record paths to all included
-            templates.
+            @return List of processing tokens.
             @hidden
         """
         if self._comments:
             self.DEB("PREPROCESS: COMMENTS")
-            data = self.remove_comments(data)
+            template_data = self.remove_comments(template_data)
+        tokens = self.tokenize(template_data)
         if self._include:
             self.DEB("PREPROCESS: INCLUDES")
-            data = self.include_templates(data)
-        return data
+            self.include_templates(tokens)
+        return tokens
 
-    def remove_comments(self, data):
-        """ Remove comments from the template.
+    def remove_comments(self, template_data):
+        """ Remove comments from the template data.
             @hidden
         """
-        pattern = r"### .*$"
-        rc = re.compile(pattern, re.MULTILINE)
-        return rc.sub("", data)
+        pattern = r"### .*"
+        return re.sub(pattern, "", template_data)
            
-    def include_templates(self, data):
+    def include_templates(self, tokens):
         """ Process TMPL_INCLUDE statements. Use the include_level counter
-            to prevent infinite recursion.
+            to prevent infinite recursion. Record paths to all included
+            templates to self._include_files.
             @hidden
         """
-        INCLUDE_PARAMS = 1
-        PARAM_NAME = 1
-        pattern = r"""
-            (?:^[ \t]+)?               # eat spaces, tabs (opt.)
-            (<
-             (?:!--[ ])?               # comment start + space (opt.)
-             TMPL_INCLUDE              # statement
-            )
-            (?:\s+(?:NAME="?)?([-\w.:/\\]+)"?)?  # filename (opt.)
-            (?:[ ]--)?                 # space + comment end (opt.)
-            >
-            [%s]?                      # eat trailing newline (opt.)
-        """ % os.linesep
-        rc = re.compile(pattern, re.VERBOSE | re.MULTILINE)
-        tokens = rc.split(data)
-        len_tokens = len(tokens)
         i = 0
-        out = ""
+        out = ""    # buffer for output
         skip_params = 0
         
         # Process the list of tokens.
         while 1:
-            if i == len_tokens: break
+            if i == len(tokens): break
             if skip_params:
                 skip_params = 0
-                i += INCLUDE_PARAMS
+                i += PARAMS_NUMBER
                 continue
 
             token = tokens[i]
-            if token == "<TMPL_INCLUDE" or token == "<!-- TMPL_INCLUDE":
+            if token == "<TMPL_INCLUDE":
                 filename = tokens[i + PARAM_NAME]
                 if not filename:
                     raise TemplateError, "No filename in <TMPL_INCLUDE>."
-                skip_params = 1
                 self._include_level += 1
                 if self._include_level > self._max_include:
-                    # Max include level reached, append a warning.
-                    out += """
-                        <p>
-                        <strong>HTMLTMPL WARNING:</strong><br />
-                        Maximum include limit reached.<br />
-                        Cannot include template: <strong>%s</strong>
-                        </p>
-                    """ % filename
-                    self.DEB("INCLUDE: LIMIT: " + filename)
+                    # Do not include the template.
+                    # Protection against infinite recursive includes.
+                    skip_params = 1
+                    self.DEB("INCLUDE: LIMIT REACHED: " + filename)
                 else:
+                    # Include the template.
+                    skip_params = 0
                     include_file = os.path.join(self._include_path, filename)
                     self._include_files.append(include_file)
-                    data = self.read(include_file)
-                    out += self.preprocess(data)
-                    self.DEB("INCLUDE: " + filename)
-            else:
-                # Template data.
-                out += token                        
+                    include_data = self.read(include_file)
+                    include_tokens = self.parse(include_data)
+
+                    # Append the tokens from the included template to actual
+                    # position in the tokens list, replacing the TMPL_INCLUDE
+                    # token and its parameters.
+                    tokens[i:i+PARAMS_NUMBER+1] = include_tokens
+                    i = i + len(include_tokens)
+                    self.DEB("INCLUDED: " + filename)
+                    continue   # Do not increment 'i' below.
             i += 1
             # end of the main while loop
+
         if self._include_level > 0: self._include_level -= 1
         return out
     
-    def parse(self, template_data):
+    def tokenize(self, template_data):
         """ Split the template into tokens separated by template statements.
-            The statements and associated parameters are also separately 
-            included in the resulting list of tokens. Return the list of
-            tokens.
+            The statements itself and associated parameters are also
+            separately  included in the resulting list of tokens.
+            Return list of the tokens.
 
             @hidden
         """
-        self.DEB("PARSING TEMPLATE")
+        self.DEB("TOKENIZING TEMPLATE")
+        # NOTE: The TWO double quotes in character class in the regexp below
+        # are there only to prevent confusion of syntax highlighter in Emacs.
         pattern = r"""
             (?:^[ \t]+)?               # eat spaces, tabs (opt.)
             (<
              (?:!--[ ])?               # comment start + space (opt.)
-             /?TMPL_[A-Z]+             # closing slash "/" (opt.) + statement
-            )                               
-            (?:\s+(?:NAME="?)?([-\w]+)"?)?     # variable name (opt.)
-            (?:\s+ESCAPE="?(\w+)"?)?   # escape mode override (opt.)
-            (?:\s+GLOBAL="?(\w+)"?)?   # global_vars override (opt.)
-            (?:[ ]--)?                 # space + comment end (opt.)
-            >
+             /?TMPL_[A-Z]+             # closing slash / (opt.) + statement
+             [ a-zA-Z0-9""/.=:_\\-]*   # this spans also comments ending (--)
+             >)
             [%s]?                      # eat trailing newline (opt.)
         """ % os.linesep
         rc = re.compile(pattern, re.VERBOSE | re.MULTILINE)
-        return rc.split(template_data)
+        split = rc.split(template_data)
+        tokens = []
+        for statement in split:
+            if statement.startswith("<TMPL_") or \
+               statement.startswith("</TMPL_") or \
+               statement.startswith("<!-- TMPL_") or \
+               statement.startswith("<!-- /TMPL_"):
+                # Processing statement.
+                statement = self.strip_brackets(statement)
+                params = re.split(r"\s+", statement)
+                tokens.append(self.find_directive(params))
+                tokens.append(self.find_name(params))
+                tokens.append(self.find_param("ESCAPE", params))
+                tokens.append(self.find_param("GLOBAL", params))
+            else:
+                # "Normal" template data.
+                tokens.append(statement)
+        return tokens
+            
+    def strip_brackets(self, statement):
+        """ Strip HTML brackets (with optional HTML comments) from the
+            beggining and from the end of a statement.
+            @hidden
+        """
+        if statement.startswith("<!-- TMPL_") or \
+           statement.startswith("<!-- /TMPL_"):
+            return statement[5:-4]
+        else:
+            return statement[1:-1]
+
+    def find_directive(self, params):
+        """ Extract processing directive (TMPL_*) from a statement.
+            @hidden
+        """
+        directive = params[0]
+        del params[0]
+        self.DEB("TOKENIZER: DIRECTIVE: " + directive)
+        return "<" + directive
+
+    def find_name(self, params):
+        """ Extract identifier from a statement. The identifier can be
+            specified both implicitely or explicitely as a 'NAME' parameter.
+            @hidden
+        """
+        if len(params) > 0 and '=' not in params[0]:
+            # implicit identifier
+            name = params[0]
+            del params[0]
+        else:
+            # explicit identifier as a 'NAME' parameter
+            name = self.find_param("NAME", params)
+        self.DEB("TOKENIZER: NAME: " + str(name))
+        return name
+
+    def find_param(self, param, params):
+        """ Extract value of parameter from a statement.
+            @hidden
+        """
+        for pair in params:
+            name, value = pair.split("=")
+            if not name or not value:
+                raise TemplateError, "Syntax error in template."
+            if name == param:
+                if value[0] == '"':
+                    # The value is in double quotes.
+                    ret_value = value[1:-1]
+                else:
+                    # The value is without double quotes.
+                    ret_value = value
+                self.DEB("TOKENIZER: PARAM: '%s' => '%s'" % (param, ret_value))
+                return ret_value
+        else:
+            self.DEB("TOKENIZER: PARAM: '%s' => NOT DEFINED" % param)
+            return None
 
 
 ##############################################
@@ -1116,27 +1225,30 @@ class Template:
         self._include_mtimes = {}
 
         if not file:
-            self.DEB("TEMPLATE COMPILED FROM A STRING")
+            self.DEB("TEMPLATE WAS COMPILED FROM A STRING")
             return
-            
+
+        # Save modifitcation time of the main template file.           
         if os.path.isfile(file):
             self._mtime = os.path.getmtime(file)
         else:
             raise TemplateError, "Template: file does not exist: '%s'" % file
 
+        # Save modificaton times of all included template files.
         for inc_file in include_files:
             if os.path.isfile(inc_file):
                 self._include_mtimes[inc_file] = os.path.getmtime(inc_file)
             else:
                 raise TemplateError, "Template: file does not exist: '%s'"\
                                      % inc_file
-        self.DEB("NEw TMPLATE CREATED")
+            
+        self.DEB("NEW TEMPLATE CREATED")
 
     def is_uptodate(self, compile_params=None):
         """ Check whether the compiled template is uptodate.
 
-            Returns true if this compiled template is uptodate.
-            Returns false, if the template source file was changed on the
+            Return true if this compiled template is uptodate.
+            Return false, if the template source file was changed on the
             disk since it was compiled.
             Works by comparison of modification times.
             Also takes modification times of all included templates
@@ -1164,11 +1276,14 @@ class Template:
         # Check modification times of the main template and all included
         # templates. If the included template no longer exists, then
         # the problem will be resolved when the template is recompiled.
+
+        # Main template file.
         if not (os.path.isfile(self._file) and \
                 self._mtime == os.path.getmtime(self._file)):
             self.DEB("TEMPLATE: NOT UPTODATE: " + self._file)
             return 0        
 
+        # Included templates.
         for inc_file in self._include_mtimes.keys():
             if not (os.path.isfile(inc_file) and \
                     self._include_mtimes[inc_file] == \
@@ -1180,13 +1295,13 @@ class Template:
             return 1       
     
     def tokens(self):
-        """ Get tokens.
+        """ Get tokens of this template.
             @hidden
         """
         return self._tokens
 
     def file(self):
-        """ Get file.
+        """ Get filename of the main file of this template.
             @hidden
         """
         return self._file

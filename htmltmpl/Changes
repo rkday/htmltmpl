@@ -1,19 +1,28 @@
 
-    1.18 :
-        - fix of 'doc/python.html'; removed link to the "Exceptions" section
-          which no longer exists there
+    1.18 : 2001/10/08
+        - new feature: multipart templates.
+          They can be created using the new <TMPL_BOUNDARY> directive.
+          Please see the updated Language reference documentation
+          for more information about this new feature.
+
+        - rewritten parser:
+            - bugfix: multiple parameters now can be specified in any order
+            - better performance of parsing of template inclusions
+
+        - bugfix: the magic variable __EVERY__x now works also if x > 9
+        - extended test-suite
+        - some small documentation fixes
 
     1.17 : 2001/09/03
     	- Added the "binary" flag to open() where it's appropriate.
             This could cause problems on Windows.
         - The most important function - TemplateProcessor().process() - 
           was optimized and is now twice faster. The template
-          'test/complex.tmpl' can be processed 20x per second on my K6-350,
+          'test/complex.tmpl' can be processed 50x per second on my K6-350,
           when it's precompiled in memory.
         - The default template of easydoc was somewhat enhanced and is now
           indented properly.
-        - easy.py has new option "--methodbg"
-  
+        - easy.py has new option "--methodbg" 
 
     1.16 : 2001/09/02
         - bugfix in easydoc: hidden classes were not hidden
@@ -24,7 +33,6 @@
              I tried to make the old interface as similar to HTML::Template
              as possible, but it apparently was not a good idea, because
              design of HTML::Template is not much object oriented.
-             It would be a major pain to implement that in Java.
              So, please check the documentation for description of the
              new much more flexible interface. !!
            

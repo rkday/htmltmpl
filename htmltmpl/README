@@ -3,7 +3,7 @@
     ========
     A Python based templating engine for separation of code and HTML.
       
-    To run the tests (recommended):
+    To run the regression tests (recommended):
     
         python test.py   
     

@@ -14,6 +14,7 @@ if os.linesep != "\n":
     print "Converting newline separators in .tmpl and .res files."
     files = [x for x in os.listdir(".") \
                if x.find(".tmpl") != -1 or x.find(".res") != -1]
+    files.sort()
     for file in files:
         old = open(file).read()
         new = re.sub("\n", os.linesep, old)
@@ -23,5 +24,5 @@ if os.linesep != "\n":
 scripts = [x for x in os.listdir(".") if x.find(".py") != -1]
 scripts.sort()
 for i in range(len(scripts)):
-    print i, "...",
+    print i+1, "...",
     execfile(scripts[i])
