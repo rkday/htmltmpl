@@ -972,7 +972,8 @@ class TemplateCompiler {
     var $_include_level;
     var $_include_path;
     
-    function TemplateCompiler($include=TRUE, $max_include=5, $comments=TRUE) {
+    function TemplateCompiler($include=TRUE, $max_include=5, $comments=TRUE,
+                              $gettext=FALSE) {
         # Constructor.
         #
         # param include: Enable or disable included templates.
@@ -982,7 +983,8 @@ class TemplateCompiler {
         $this->_include = $include;
         $this->_max_include = $max_include;
         $this->_comments = $comments;
-        
+        $this->_gettext = $gettext;
+
         # This is a list of filenames of all included templates.
         # It's modified by the include_templates() method.
         $this->_include_files = array();
@@ -1173,10 +1175,24 @@ class TemplateCompiler {
             }
             else {
                 # "Normal" template data.
+                if ($this->_gettext) {
+                    array_push($tokens, $this->gettext_tokens($statement));
+                }
                 array_push($tokens, $statement);
             }
         }
 
+        return $tokens;
+    }
+
+    function gettext_tokens($str) {
+        # Find gettext strings and return appropriate array of
+        # processing tokens.
+        $tokens = array();
+
+        foreach ($matches[1] as $match) {
+            
+        }
         return $tokens;
     }
 
