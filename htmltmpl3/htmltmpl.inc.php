@@ -36,7 +36,7 @@ class HTMLTmpl {
 					$return = "<?php $this->call_function('$name', " . ($loop ? '$row' . $loop : '$vars') . ", \$globals); ?>";
 				}
 			} elseif ($tag == "TMPL_SELECT") {
-				$return = "<select name='" . (strpos($name, '$') !== false ? "<?php echo \"$name\"; ?>" : $name) . "'" . (preg_match('~\\sEXTRA=("[^"]+"|[^ ]+)~i', $attrs, $match2) ? " " . trim($match2[1], '"') : "") . ">";
+				$return = "<select name='$name'" . (preg_match('~\\sEXTRA=("[^"]+"|[^ ]+)~i', $attrs, $match2) ? " " . trim($match2[1], '"') : "") . ">";
 				$return .= "<?php\nforeach (\$vars[\"$name\"] as \$key => \$val) {\n\techo '<option value=\"' . htmlspecialchars(\$key) . '\"' . (\$key == \$_REQUEST[\"$name\"] ? ' selected=\"selected\"' : '') . '>' . htmlspecialchars(\$val) . '</option>';\n}\n?>";
 				$return .= "</select>";
 			} elseif ($tag == "TMPL_LOOP") {
