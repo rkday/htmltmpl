@@ -26,6 +26,7 @@ class HTMLTmpl {
 			$return = "<?php } ?>";
 		} else { // značky obsahující atribut NAME
 			$name = (preg_match('~\\sNAME=("[^"]+"|[^ ]+)~i', $attrs, $match2) ? trim($match2[1], '"') : preg_replace('~^\\s+([^\\s]+).*~s', '\\1', $attrs));
+			$php_var = preg_replace('~\\.~', '"]["', $name);
 			$loop = count($loops);
 			if ($tag == "TMPL_INCLUDE") {
 				$return = "<?php \$this->read('$name', " . ($loop ? '$row' . $loop : '$vars') . ', $globals); ?>';
@@ -37,12 +38,12 @@ class HTMLTmpl {
 				}
 			} elseif ($tag == "TMPL_SELECT") {
 				$return = "<select name='$name'" . (preg_match('~\\sEXTRA=("[^"]+"|[^ ]+)~i', $attrs, $match2) ? " " . trim($match2[1], '"') : "") . ">";
-				$return .= "<?php\nforeach (\$vars[\"$name\"] as \$key => \$val) {\n\techo '<option value=\"' . htmlspecialchars(\$key) . '\"' . (\$key == \$_REQUEST[\"$name\"] ? ' selected=\"selected\"' : '') . '>' . htmlspecialchars(\$val) . '</option>';\n}\n?>";
+				$return .= "<?php\nforeach (\$vars[\"$php_var\"] as \$key => \$val) {\n\techo '<option value=\"' . htmlspecialchars(\$key) . '\"' . (\$key == \$_REQUEST[\"$name\"] ? ' selected=\"selected\"' : '') . '>' . htmlspecialchars(\$val) . '</option>';\n}\n?>";
 				$return .= "</select>";
 			} elseif ($tag == "TMPL_LOOP") {
 				$loop++;
 				$loops[] = $name;
-				$return = "<?php foreach (" . ($loop == 1 ? '$vars' : '$row' . ($loop - 1)) . "[\"$name\"] as \$i$loop => \$row$loop) { ?>";
+				$return = "<?php foreach (" . ($loop == 1 ? '$vars' : '$row' . ($loop - 1)) . "[\"$php_var\"] as \$i$loop => \$row$loop) { ?>";
 			} else {
 				$count = 'count($vars["' . end($loops) . '"])';
 				switch ($name) {
@@ -55,7 +56,7 @@ class HTMLTmpl {
 					default: if (preg_match('~^__EVERY__([1-9][0-9]*)$~', $name, $match2)) {
 						$return = "\$i$loop % $match2[1] == 0";
 					} else {
-						$return = (preg_match('~\\sGLOBAL="?1~i', $attrs) ? '$globals' : (!$loop ? '$vars' : '$row' . $loop)) . "[\"$name\"]";
+						$return = (preg_match('~\\sGLOBAL="?1~i', $attrs) ? '$globals' : (!$loop ? '$vars' : '$row' . $loop)) . "[\"$php_var\"]";
 						if ($tag == "TMPL_VAR") {
 							preg_match('~\\sESCAPE="?([^\\s"]+)~i', $attrs, $match2);
 							switch ($match2 ? strtoupper($match2[1]) : "HTML") {
