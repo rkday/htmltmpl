@@ -1,7 +1,4 @@
 <?php
-/* doplnit:
- * - podpora tečkové notace (preklad na [""])
- */
 class HTMLTmpl {
 	var $lang_function = "gettext";
 	var $call_function = "";
@@ -24,7 +21,7 @@ class HTMLTmpl {
 		} elseif ($tag == "/TMPL_LOOP") {
 			array_pop($loops);
 			$return = "<?php } ?>";
-		} else { // značky obsahující atribut NAME
+		} else { // tags containing NAME attribute
 			$name = (preg_match('~\\sNAME=("[^"]+"|[^ ]+)~i', $attrs, $match2) ? trim($match2[1], '"') : preg_replace('~^\\s+([^\\s]+).*~s', '\\1', $attrs));
 			$php_var = preg_replace('~\\.~', '"]["', $name);
 			$loop = count($loops);
@@ -77,12 +74,12 @@ class HTMLTmpl {
 					}
 				}
 				if ($tag == "TMPL_VAR") {
-					$return = "$match[1]<?php echo $return; ?>$match[4]"; // zachovat mezery na začátku řádku a \n na konci
+					$return = "$match[1]<?php echo $return; ?>$match[4]"; // preserve spaces in the beginning and the end and \n at end
 				} elseif ($tag == "TMPL_IF" || $tag == "TMPL_ELSEIF") {
 					$return = "<?php " . ($tag == "TMPL_ELSEIF" ? "} else" : "") . "if ($return) { ?>";
 				} elseif ($tag == "TMPL_UNLESS" || $tag == "TMPL_ELSEUNLESS") {
 					$return = "<?php " . ($tag == "TMPL_ELSEUNLESS" ? "} else" : "") . "if (!($return)) { ?>";
-				} else { // neznámá značka
+				} else {
 					trigger_error("Unknown tag $tag", E_USER_WARNING);
 					return $match[0];
 				}
@@ -91,10 +88,10 @@ class HTMLTmpl {
 		return "$return$match[4]";
 	}
 	
-	// překlad jazykových značek, callback funkce preg_replace_callback
+	// translation of language tags, callback function of preg_replace_callback
 	function compile_lang($match) {
 		$backslashes = substr($match[1], 0, floor(strlen($match[1]) / 2));
-		if (strlen($match[1]) % 2 == 1) { // escapované [[
+		if (strlen($match[1]) % 2 == 1) { // escaped [[
 			return $backslashes . "[[$match[2]]]$match[3]";
 		}
 		$return = "$this->lang_function('" . addcslashes($match[2], "\\'") . "'" . (trim($match[3]) ? ", false" : "") . ")";
@@ -118,11 +115,11 @@ class HTMLTmpl {
 				@mkdir($dirname, 0770, true);
 				chmod($dirname, 0770);
 			}
-			$tempnam = tempnam($this->cache_dir, "tmp"); // při zápisu rovnou do $cache_filename by se před zapsáním dat vkládal prázdný soubor
+			$tempnam = tempnam($this->cache_dir, "tmp"); // writing to $cache_filename would cause inclusion of empty file before end of writing
 			$fp = fopen($tempnam, "wb");
 			fwrite($fp, $file);
 			fclose($fp);
-			copy($tempnam, $cache_filename); // rename() není použito proto, že soubor už mohl existovat a je potřeba, aby ani na chvíli nezmizel, takže ho nelze smazat
+			copy($tempnam, $cache_filename); // unlink() + rename() would cause absence of the file for a moment
 			unlink($tempnam);
 		}
 		return $cache_filename;
