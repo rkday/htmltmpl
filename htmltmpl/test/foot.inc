@@ -7,10 +7,10 @@ if "out" in sys.argv:
 
 res = open("%s.res" % TEST).read()
 
-print TEST, "...",
+print(TEST, "...", end=' ')
 
 if output == res:
-    print "OK"
+    print("OK")
 else:
-    print "FAILED"
+    print("FAILED")
     open("%s.fail" % TEST, "w").write(output)
